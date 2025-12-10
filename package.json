@@ -1,0 +1,70 @@
+{
+  "name": "@doclea/mcp",
+  "version": "0.0.1",
+  "description": "Local MCP server for Doclea - persistent memory for AI coding assistants",
+  "type": "module",
+  "license": "MIT",
+  "author": "Quantic Studios",
+  "homepage": "https://doclea.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/docleaai/doclea-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/docleaai/doclea-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "ai",
+    "memory",
+    "coding-assistant",
+    "model-context-protocol"
+  ],
+  "bin": {
+    "doclea-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node --format esm",
+    "build:bun": "bun build src/index.ts --outdir dist --target bun",
+    "start": "node dist/index.js",
+    "start:bun": "bun run dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "test": "bun test",
+    "test:unit": "bun test src/__tests__ --exclude src/__tests__/integration/e2e.test.ts",
+    "test:integration": "./scripts/test-integration.sh",
+    "test:e2e": "bun test src/__tests__/integration/e2e.test.ts",
+    "docker:up": "docker compose -f docker-compose.test.yml up -d",
+    "docker:down": "docker compose -f docker-compose.test.yml down --volumes",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@modelcontextprotocol/sdk": "^1.24.3",
+    "@qdrant/js-client-rest": "^1.16.2",
+    "simple-git": "^3.30.0",
+    "sqlite-vec": "^0.1.7-alpha.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8",
+    "bun-types": "latest",
+    "typescript": "^5.9.3",
+    "lefthook": "^2.0.9"
+  },
+  "engines": {
+    "node": ">=18",
+    "bun": ">=1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
