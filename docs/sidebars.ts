@@ -90,7 +90,18 @@ const sidebars: SidebarsConfig = {
         'architecture/overview',
         'architecture/storage',
         'architecture/embeddings',
+        {
+          type: 'category',
+          label: 'Chunking',
+          collapsed: true,
+          items: [
+            'architecture/chunking/overview',
+            'architecture/chunking/markdown',
+            'architecture/chunking/code',
+          ],
+        },
         'architecture/vector-search',
+        'architecture/retrieval-strategies',
       ],
     },
     'troubleshooting',

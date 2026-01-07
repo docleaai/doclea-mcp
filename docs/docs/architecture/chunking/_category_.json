@@ -1,0 +1,11 @@
+{
+  "label": "Chunking",
+  "position": 2,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "Document Chunking",
+    "description": "How Doclea splits documents into semantic chunks for embedding and retrieval.",
+    "slug": "/architecture/chunking"
+  }
+}

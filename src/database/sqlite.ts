@@ -8,9 +8,11 @@ import type {
   Memory,
   UpdateMemory,
 } from "@/types";
+import { MigrationRunner, migrations } from "@/migrations";
 
 export class SQLiteDatabase {
   private db: Database;
+  private migrationRunner: MigrationRunner;
 
   constructor(dbPath: string) {
     // Ensure directory exists
@@ -19,79 +21,49 @@ export class SQLiteDatabase {
       mkdirSync(dir, { recursive: true });
     }
 
-    this.db = new Database(dbPath, { create: true });
-    this.db.run("PRAGMA journal_mode = WAL");
+    // Initialize migration runner (handles db creation and WAL mode)
+    this.migrationRunner = new MigrationRunner(dbPath, migrations);
+    this.db = this.migrationRunner.getDatabase();
+
+    // Run migrations automatically
     this.initSchema();
   }
 
   private initSchema(): void {
-    // Create memory table
-    this.db.run(`
-			CREATE TABLE IF NOT EXISTS memories (
-				id TEXT PRIMARY KEY,
-				type TEXT NOT NULL,
-				title TEXT NOT NULL,
-				content TEXT NOT NULL,
-				summary TEXT,
-				importance REAL DEFAULT 0.5,
-				tags TEXT DEFAULT '[]',
-				related_files TEXT DEFAULT '[]',
-				git_commit TEXT,
-				source_pr TEXT,
-				experts TEXT DEFAULT '[]',
-				qdrant_id TEXT,
-				created_at INTEGER DEFAULT (unixepoch()),
-				accessed_at INTEGER DEFAULT (unixepoch())
-			)
-		`);
+    // Run all pending migrations
+    const result = this.migrationRunner.migrate();
 
-    // Create documents table
-    this.db.run(`
-			CREATE TABLE IF NOT EXISTS documents (
-				id TEXT PRIMARY KEY,
-				title TEXT NOT NULL,
-				content TEXT NOT NULL,
-				content_hash TEXT,
-				created_at INTEGER DEFAULT (unixepoch()),
-				updated_at INTEGER DEFAULT (unixepoch())
-			)
-		`);
+    // Handle async result
+    result.then((r) => {
+      if (!r.success) {
+        console.error(`[doclea] Migration failed: ${r.error}`);
+      } else if (r.applied.length > 0) {
+        console.log(
+          `[doclea] Applied migrations: ${r.applied.join(", ")}`,
+        );
+      }
+    });
+  }
 
-    // Create chunks table
-    this.db.run(`
-			CREATE TABLE IF NOT EXISTS chunks (
-				id TEXT PRIMARY KEY,
-				document_id TEXT REFERENCES documents(id) ON DELETE CASCADE,
-				content TEXT NOT NULL,
-				qdrant_id TEXT,
-				start_offset INTEGER,
-				end_offset INTEGER
-			)
-		`);
+  /**
+   * Get underlying database instance
+   */
+  getDatabase(): Database {
+    return this.db;
+  }
 
-    // Create embedding cache table
-    this.db.run(`
-			CREATE TABLE IF NOT EXISTS embedding_cache (
-				content_hash TEXT PRIMARY KEY,
-				embedding TEXT NOT NULL,
-				model TEXT NOT NULL,
-				created_at INTEGER DEFAULT (unixepoch())
-			)
-		`);
+  /**
+   * Get current schema version
+   */
+  getSchemaVersion(): string | null {
+    return this.migrationRunner.getCurrentVersion();
+  }
 
-    // Create indexes
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)",
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_memories_qdrant ON memories(qdrant_id)",
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id)",
-    );
-    this.db.run(
-      "CREATE INDEX IF NOT EXISTS idx_embedding_cache_model ON embedding_cache(model)",
-    );
+  /**
+   * Get migration status
+   */
+  getMigrationStatus(): import("@/migrations").MigrationStatus[] {
+    return this.migrationRunner.getStatus();
   }
 
   // Memory operations
