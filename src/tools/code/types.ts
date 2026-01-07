@@ -7,14 +7,19 @@ export type CodeNodeType =
 	| "class"
 	| "interface"
 	| "type"
-	| "module";
+	| "module"
+	| "package";
 
 export type CodeEdgeType =
 	| "calls"
 	| "imports"
 	| "implements"
 	| "extends"
-	| "references";
+	| "references"
+	| "depends_on";
+
+export type CallGraphDirection = "outgoing" | "incoming" | "both";
+export type DependencyTreeDirection = "imports" | "importedBy" | "both";
 
 export interface CodeNode {
 	id: string;
@@ -48,6 +53,27 @@ export interface FileHash {
 export interface CallGraphResult {
 	nodes: CodeNode[];
 	edges: CodeEdge[];
+}
+
+export interface BreakingChange {
+	node: CodeNode;
+	reason: string;
+	severity: "high" | "medium" | "low";
+}
+
+export interface ImpactAnalysisResult {
+	affectedNodes: CodeNode[];
+	affectedEdges: CodeEdge[];
+	depth: number;
+	breakingChanges: BreakingChange[];
+}
+
+export interface ParsedImport {
+	source: string;
+	symbols: string[];
+	isDefault: boolean;
+	isNamespace: boolean;
+	line: number;
 }
 
 export interface FileChange {

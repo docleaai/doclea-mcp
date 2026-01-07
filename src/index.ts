@@ -29,10 +29,16 @@ import {
   getCodeNode,
   updateNodeSummary,
   getCallGraph,
+  findImplementations,
+  getDependencyTree,
+  analyzeImpact,
   ScanCodeInputSchema,
   GetCodeNodeInputSchema,
   UpdateNodeSummaryInputSchema,
   GetCallGraphInputSchema,
+  FindImplementationsInputSchema,
+  GetDependencyTreeInputSchema,
+  AnalyzeImpactInputSchema,
 } from "./tools/code";
 import { buildContext, BuildContextInputSchema } from "./tools/context";
 import {
@@ -645,10 +651,7 @@ server.registerTool(
     description:
       "Get the call graph for a function or class. Shows what calls this node and what it calls, up to a specified depth. Useful for understanding code dependencies and impact analysis.",
     inputSchema: {
-      nodeId: z
-        .string()
-        .optional()
-        .describe("Node ID to start from"),
+      nodeId: z.string().optional().describe("Node ID to start from"),
       functionName: z
         .string()
         .optional()
@@ -659,6 +662,12 @@ server.registerTool(
         .max(5)
         .default(2)
         .describe("How many levels deep to traverse"),
+      direction: z
+        .enum(["outgoing", "incoming", "both"])
+        .default("both")
+        .describe(
+          "Direction: 'outgoing' (what this calls), 'incoming' (what calls this), 'both'",
+        ),
     },
   },
   async (args) => {
@@ -667,6 +676,7 @@ server.registerTool(
         nodeId: args.nodeId,
         functionName: args.functionName,
         depth: args.depth ?? 2,
+        direction: args.direction ?? "both",
       },
       db.getDatabase(),
     );
@@ -675,6 +685,129 @@ server.registerTool(
         { type: "text", text: result.message },
         { type: "text", text: "\n\n" },
         { type: "text", text: JSON.stringify(result.graph, null, 2) },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_find_implementations",
+  {
+    title: "Find Implementations",
+    description:
+      "Find all classes that implement a given interface. Useful for understanding polymorphism and interface usage across the codebase.",
+    inputSchema: {
+      interfaceName: z
+        .string()
+        .describe("Name of the interface to find implementations for"),
+      interfaceId: z
+        .string()
+        .optional()
+        .describe("Direct interface node ID if known"),
+    },
+  },
+  async (args) => {
+    const result = await findImplementations(
+      {
+        interfaceName: args.interfaceName,
+        interfaceId: args.interfaceId,
+      },
+      db.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.implementations, null, 2) },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_dependency_tree",
+  {
+    title: "Get Dependency Tree",
+    description:
+      "Show the import dependency tree for a module. Can show what a module imports, what imports the module, or both directions.",
+    inputSchema: {
+      modulePath: z.string().optional().describe("File path of the module"),
+      moduleId: z.string().optional().describe("Module node ID if known"),
+      depth: z
+        .number()
+        .min(1)
+        .max(10)
+        .default(3)
+        .describe("How many levels deep to traverse"),
+      direction: z
+        .enum(["imports", "importedBy", "both"])
+        .default("imports")
+        .describe(
+          "Direction: 'imports' (what this imports), 'importedBy' (what imports this), 'both'",
+        ),
+    },
+  },
+  async (args) => {
+    const result = await getDependencyTree(
+      {
+        modulePath: args.modulePath,
+        moduleId: args.moduleId,
+        depth: args.depth ?? 3,
+        direction: args.direction ?? "imports",
+      },
+      db.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.tree, null, 2) },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_impact_analysis",
+  {
+    title: "Analyze Impact",
+    description:
+      "Analyze what would break if a node is changed. Shows all dependent nodes, the type of dependency, and severity of potential breaking changes. Answers 'what breaks if I change this?'",
+    inputSchema: {
+      nodeId: z.string().optional().describe("Node ID to analyze impact for"),
+      functionName: z
+        .string()
+        .optional()
+        .describe("Function/class name to analyze"),
+      depth: z
+        .number()
+        .min(1)
+        .max(5)
+        .default(3)
+        .describe("How many levels deep to analyze"),
+    },
+  },
+  async (args) => {
+    const result = await analyzeImpact(
+      {
+        nodeId: args.nodeId,
+        functionName: args.functionName,
+        depth: args.depth ?? 3,
+      },
+      db.getDatabase(),
+    );
+    const breakingChangesText =
+      result.result.breakingChanges.length > 0
+        ? `\n\n**Breaking Changes:**\n${result.result.breakingChanges
+            .map((c) => `- [${c.severity.toUpperCase()}] ${c.node.name}: ${c.reason}`)
+            .join("\n")}`
+        : "";
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: breakingChangesText },
+        { type: "text", text: "\n\n---\n\n" },
+        { type: "text", text: JSON.stringify(result.result, null, 2) },
       ],
     };
   },

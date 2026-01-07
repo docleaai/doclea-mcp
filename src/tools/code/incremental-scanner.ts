@@ -89,9 +89,45 @@ export class IncrementalScanner {
 			// Chunk the file
 			const chunks = await this.chunkFile(file.path, file.content);
 
-			// Process each chunk
-			for (const chunk of chunks) {
-				await this.processChunk(chunk, file.path, stats, "add");
+			// Use file-level extraction to get module nodes and import edges
+			const { nodes, edges } = await this.graphExtractor.extractFromFile(
+				file.path,
+				chunks,
+				file.content,
+			);
+
+			// Generate summaries and upsert nodes
+			for (const node of nodes) {
+				// Generate summary for function/class nodes
+				if (
+					this.summarizer &&
+					(node.type === "function" || node.type === "class")
+				) {
+					try {
+						// Find the corresponding chunk for this node
+						const chunk = chunks.find(
+							(c) =>
+								c.metadata.name === node.name &&
+								c.metadata.startLine === node.startLine,
+						);
+						if (chunk) {
+							const summaryResult = await this.summarizer.summarize(chunk);
+							node.summary = summaryResult.summary;
+						}
+					} catch (error) {
+						console.warn("Failed to generate summary:", error);
+					}
+				}
+
+				// KAG: Upsert node
+				await this.codeGraph.upsertNode(node);
+				stats.nodesAdded++;
+			}
+
+			// Upsert edges
+			for (const edge of edges) {
+				await this.codeGraph.upsertEdge(edge);
+				stats.edgesAdded++;
 			}
 
 			stats.filesScanned++;

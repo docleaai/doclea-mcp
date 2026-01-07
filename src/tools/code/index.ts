@@ -23,4 +23,24 @@ export {
 	getCallGraph,
 } from "./call-graph";
 
+export {
+	type FindImplementationsInput,
+	FindImplementationsInputSchema,
+	findImplementations,
+} from "./find-implementations";
+
+export {
+	type GetDependencyTreeInput,
+	GetDependencyTreeInputSchema,
+	getDependencyTree,
+} from "./dependency-tree";
+
+export {
+	type AnalyzeImpactInput,
+	AnalyzeImpactInputSchema,
+	analyzeImpact,
+} from "./impact-analysis";
+
+export { GraphExtractor } from "./graph-extractor";
+
 export * from "./types";

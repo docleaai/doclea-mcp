@@ -1,11 +1,15 @@
 import type { Database } from "bun:sqlite";
 import type {
+	BreakingChange,
+	CallGraphDirection,
 	CallGraphResult,
 	CodeEdge,
 	CodeEdgeType,
 	CodeNode,
 	CodeNodeType,
+	DependencyTreeDirection,
 	FileHash,
+	ImpactAnalysisResult,
 } from "../tools/code/types";
 
 export class CodeGraphStorage {
@@ -172,6 +176,7 @@ export class CodeGraphStorage {
 	async getCallGraph(
 		functionId: string,
 		depth: number = 2,
+		direction: CallGraphDirection = "both",
 	): Promise<CallGraphResult> {
 		const visited = new Set<string>();
 		const nodes: CodeNode[] = [];
@@ -190,16 +195,29 @@ export class CodeGraphStorage {
 			const node = await this.getNode(id);
 			if (node) nodes.push(node);
 
-			// Get outgoing 'calls' edges
-			const outgoing = await this.getEdgesFrom(id, "calls");
-			edges.push(...outgoing);
+			// Get outgoing 'calls' edges (this node calls others)
+			if (direction === "outgoing" || direction === "both") {
+				const outgoing = await this.getEdgesFrom(id, "calls");
+				edges.push(...outgoing);
+				for (const edge of outgoing) {
+					queue.push({ id: edge.toNode, currentDepth: currentDepth + 1 });
+				}
+			}
 
-			for (const edge of outgoing) {
-				queue.push({ id: edge.toNode, currentDepth: currentDepth + 1 });
+			// Get incoming 'calls' edges (others call this node)
+			if (direction === "incoming" || direction === "both") {
+				const incoming = await this.getEdgesTo(id, "calls");
+				edges.push(...incoming);
+				for (const edge of incoming) {
+					queue.push({ id: edge.fromNode, currentDepth: currentDepth + 1 });
+				}
 			}
 		}
 
-		return { nodes, edges };
+		// Deduplicate edges
+		const uniqueEdges = this.deduplicateEdges(edges);
+
+		return { nodes, edges: uniqueEdges };
 	}
 
 	async findImplementations(interfaceId: string): Promise<CodeNode[]> {
@@ -227,6 +245,7 @@ export class CodeGraphStorage {
 	async getDependencyTree(
 		moduleId: string,
 		depth: number = 3,
+		direction: DependencyTreeDirection = "imports",
 	): Promise<CallGraphResult> {
 		const visited = new Set<string>();
 		const nodes: CodeNode[] = [];
@@ -245,16 +264,199 @@ export class CodeGraphStorage {
 			const node = await this.getNode(id);
 			if (node) nodes.push(node);
 
-			// Get outgoing 'imports' edges
-			const outgoing = await this.getEdgesFrom(id, "imports");
-			edges.push(...outgoing);
+			// Get outgoing 'imports' edges (what this module imports)
+			if (direction === "imports" || direction === "both") {
+				const outgoing = await this.getEdgesFrom(id, "imports");
+				edges.push(...outgoing);
+				for (const edge of outgoing) {
+					queue.push({ id: edge.toNode, currentDepth: currentDepth + 1 });
+				}
+			}
 
-			for (const edge of outgoing) {
-				queue.push({ id: edge.toNode, currentDepth: currentDepth + 1 });
+			// Get incoming 'imports' edges (what imports this module)
+			if (direction === "importedBy" || direction === "both") {
+				const incoming = await this.getEdgesTo(id, "imports");
+				edges.push(...incoming);
+				for (const edge of incoming) {
+					queue.push({ id: edge.fromNode, currentDepth: currentDepth + 1 });
+				}
 			}
 		}
 
-		return { nodes, edges };
+		// Deduplicate edges
+		const uniqueEdges = this.deduplicateEdges(edges);
+
+		return { nodes, edges: uniqueEdges };
+	}
+
+	/**
+	 * Find all classes that implement an interface by name
+	 */
+	async findAllImplementers(interfaceName: string): Promise<CodeNode[]> {
+		const interfaceNode = await this.findNodeByName(interfaceName, "interface");
+		if (!interfaceNode) {
+			return [];
+		}
+		return this.findImplementations(interfaceNode.id);
+	}
+
+	/**
+	 * Get all modules that depend on an npm package
+	 */
+	async getPackageDependents(packageName: string): Promise<CodeNode[]> {
+		const packageId = `npm:${packageName}`;
+		const rows = this.db
+			.query(
+				`SELECT n.* FROM code_nodes n
+         JOIN code_edges e ON e.from_node = n.id
+         WHERE e.to_node = ? AND e.edge_type = 'depends_on'`,
+			)
+			.all(packageId) as any[];
+		return rows.map((row) => this.rowToNode(row));
+	}
+
+	/**
+	 * Get all npm packages in the graph
+	 */
+	async getAllPackages(): Promise<CodeNode[]> {
+		return this.getNodesByType("package");
+	}
+
+	/**
+	 * Analyze the impact of changing a node
+	 * Returns all nodes that would be affected and potential breaking changes
+	 */
+	async analyzeImpact(
+		nodeId: string,
+		depth: number = 3,
+	): Promise<ImpactAnalysisResult> {
+		const affectedNodes: CodeNode[] = [];
+		const affectedEdges: CodeEdge[] = [];
+		const breakingChanges: BreakingChange[] = [];
+		const visited = new Set<string>();
+		const queue: Array<{
+			id: string;
+			currentDepth: number;
+			path: string[];
+			viaEdgeType?: CodeEdgeType;
+		}> = [{ id: nodeId, currentDepth: 0, path: [] }];
+
+		const sourceNode = await this.getNode(nodeId);
+		if (!sourceNode) {
+			return {
+				affectedNodes: [],
+				affectedEdges: [],
+				depth: 0,
+				breakingChanges: [],
+			};
+		}
+
+		while (queue.length > 0) {
+			const { id, currentDepth, path, viaEdgeType } = queue.shift()!;
+
+			if (visited.has(id) || currentDepth > depth) continue;
+			visited.add(id);
+
+			const node = await this.getNode(id);
+			if (node && id !== nodeId) {
+				affectedNodes.push(node);
+
+				// Add breaking change info
+				if (viaEdgeType) {
+					const severity = this.calculateSeverity(viaEdgeType, currentDepth);
+					breakingChanges.push({
+						node,
+						reason: this.getBreakingReason(viaEdgeType, sourceNode, node),
+						severity,
+					});
+				}
+			}
+
+			// Find all incoming references (things that depend on this node)
+			const allIncoming = await this.getConnectedEdges(id);
+			const incoming = allIncoming.filter((e) => e.toNode === id);
+
+			affectedEdges.push(...incoming);
+
+			for (const edge of incoming) {
+				if (!visited.has(edge.fromNode)) {
+					queue.push({
+						id: edge.fromNode,
+						currentDepth: currentDepth + 1,
+						path: [...path, id],
+						viaEdgeType: edge.edgeType,
+					});
+				}
+			}
+		}
+
+		// Deduplicate edges
+		const uniqueEdges = this.deduplicateEdges(affectedEdges);
+
+		return {
+			affectedNodes,
+			affectedEdges: uniqueEdges,
+			depth,
+			breakingChanges,
+		};
+	}
+
+	/**
+	 * Calculate severity of a breaking change based on edge type and depth
+	 */
+	private calculateSeverity(
+		edgeType: CodeEdgeType,
+		depth: number,
+	): "high" | "medium" | "low" {
+		// Direct dependencies are high severity
+		if (depth === 1) {
+			if (edgeType === "implements" || edgeType === "extends") return "high";
+			if (edgeType === "imports" || edgeType === "calls") return "high";
+			if (edgeType === "references") return "medium";
+			return "medium";
+		}
+		// Depth 2 is medium
+		if (depth === 2) return "medium";
+		// Deeper dependencies are low severity
+		return "low";
+	}
+
+	/**
+	 * Get a human-readable reason for a breaking change
+	 */
+	private getBreakingReason(
+		edgeType: CodeEdgeType,
+		source: CodeNode,
+		affected: CodeNode,
+	): string {
+		switch (edgeType) {
+			case "implements":
+				return `${affected.name} implements ${source.name} interface`;
+			case "extends":
+				return `${affected.name} extends ${source.name} class`;
+			case "calls":
+				return `${affected.name} calls ${source.name}`;
+			case "imports":
+				return `${affected.name} imports from module containing ${source.name}`;
+			case "references":
+				return `${affected.name} references type ${source.name}`;
+			case "depends_on":
+				return `${affected.name} depends on package ${source.name}`;
+			default:
+				return `${affected.name} depends on ${source.name}`;
+		}
+	}
+
+	/**
+	 * Deduplicate edges by ID
+	 */
+	private deduplicateEdges(edges: CodeEdge[]): CodeEdge[] {
+		const seen = new Set<string>();
+		return edges.filter((edge) => {
+			if (seen.has(edge.id)) return false;
+			seen.add(edge.id);
+			return true;
+		});
 	}
 
 	// ============================================================================
