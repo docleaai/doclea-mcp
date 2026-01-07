@@ -724,7 +724,7 @@ server.registerTool(
         filters: args.filters,
         template: args.template ?? "default",
       },
-      db.getDatabase(),
+      db,
       vectors,
       embeddings,
     );

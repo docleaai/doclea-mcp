@@ -76,7 +76,7 @@ export class ChangeDetector {
                hash = excluded.hash,
                updated_at = excluded.updated_at`,
 					)
-					.run(change.path, change.newHash, Date.now());
+					.run(change.path, change.newHash ?? "", Date.now());
 			}
 		}
 	}

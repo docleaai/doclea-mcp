@@ -1,4 +1,4 @@
-import chokidar from "chokidar";
+import chokidar, { type FSWatcher } from "chokidar";
 import { readFileSync } from "node:fs";
 import type { IncrementalScanner } from "./incremental-scanner";
 import type { ScanOptions } from "./types";
@@ -7,7 +7,7 @@ import type { ScanOptions } from "./types";
  * File system watcher for continuous code scanning
  */
 export class CodeWatcher {
-	private watcher: chokidar.FSWatcher | null = null;
+	private watcher: FSWatcher | null = null;
 	private debounceTimer: NodeJS.Timeout | null = null;
 	private changedFiles = new Set<string>();
 

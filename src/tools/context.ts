@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { Database } from "bun:sqlite";
+import type { SQLiteDatabase } from "../database/sqlite";
 import type { VectorStore } from "../vectors";
-import type { CachedEmbeddingClient } from "../embeddings/provider";
+import type { EmbeddingClient } from "../embeddings/provider";
 import { searchMemory } from "./memory";
 import { CodeGraphStorage } from "../database/code-graph";
 import { countTokens } from "../utils/tokens";
@@ -52,9 +52,9 @@ interface ContextSection {
  */
 export async function buildContext(
 	input: BuildContextInput,
-	db: Database,
+	db: SQLiteDatabase,
 	vectors: VectorStore,
-	embeddings: CachedEmbeddingClient,
+	embeddings: EmbeddingClient,
 ): Promise<{
 	context: string;
 	metadata: {
@@ -124,9 +124,9 @@ async function buildRAGContext(
 	query: string,
 	tokenBudget: number,
 	filters: BuildContextInput["filters"],
-	db: Database,
+	db: SQLiteDatabase,
 	vectors: VectorStore,
-	embeddings: CachedEmbeddingClient,
+	embeddings: EmbeddingClient,
 ): Promise<ContextSection[]> {
 	const sections: ContextSection[] = [];
 
@@ -143,11 +143,11 @@ async function buildRAGContext(
 	);
 
 	for (const result of results) {
-		const content = formatMemory(result);
+		const content = formatMemory(result.memory);
 		const tokens = await countTokens(content);
 
 		sections.push({
-			title: result.title,
+			title: result.memory.title,
 			content,
 			tokens,
 			relevance: result.score,
@@ -164,10 +164,10 @@ async function buildRAGContext(
 async function buildKAGContext(
 	query: string,
 	tokenBudget: number,
-	db: Database,
+	db: SQLiteDatabase,
 ): Promise<ContextSection[]> {
 	const sections: ContextSection[] = [];
-	const codeGraph = new CodeGraphStorage(db);
+	const codeGraph = new CodeGraphStorage(db.getDatabase());
 
 	// Extract potential function/class names from query
 	const codeEntities = extractCodeEntities(query);

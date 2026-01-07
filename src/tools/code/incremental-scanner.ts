@@ -231,8 +231,7 @@ export class IncrementalScanner {
 		}
 
 		try {
-			return await chunkCode(content, {
-				language,
+			return await chunkCode(content, language, {
 				maxTokens: 512,
 				includeImports: false,
 				splitLargeFunctions: true,

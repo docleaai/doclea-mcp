@@ -31,7 +31,7 @@ export const LinkMemoriesInputSchema = z.object({
 		.default(1.0)
 		.describe("Relationship strength (0-1)"),
 	metadata: z
-		.record(z.any())
+		.record(z.string(), z.any())
 		.optional()
 		.describe("Optional metadata about the relationship"),
 });

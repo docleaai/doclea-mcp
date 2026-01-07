@@ -2,34 +2,20 @@ pre-commit:
   parallel: true
   commands:
     biome-check:
-      glob: "*.{js,ts,jsx,tsx,json,html}"
-      exclude: "biome.json|biome.jsonc|@scripts/"
-      run: node node_modules/@biomejs/biome/bin/biome check --write --diagnostic-level="error" --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      glob: "*.{js,ts,jsx,tsx,json}"
+      exclude: "biome.json|dist/"
+      run: bun biome check --write --diagnostic-level="error" --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
-    typecheck-web-next:
-      glob: "apps/web-next/**/*.{ts,tsx}"
-      run: cd apps/web-next && pnpm typecheck
-
-    typecheck-api-nest:
-      glob: "apps/api-nest/**/*.{ts,tsx}"
-      run: cd apps/api-nest && pnpm typecheck
-
-    export-api-docs:
-      glob: "packages/contracts/src/**/*.{ts,js}"
-      run: pnpm --filter "@invention/contracts" build && pnpm --filter "@invention/contracts" docs:export-tsrest && pnpm --filter "@invention/contracts" docs:export-orpc
-      stage_fixed: true
-
-    validate-prisma-schema:
-      glob: "packages/database/prisma/schema.prisma"
-      run: pnpm --filter @repo/database validate
+    typecheck:
+      glob: "src/**/*.ts"
+      run: bun run typecheck
 
 commit-msg:
   commands:
     check-commit-message:
       run: |
         # Basic commit message validation
-        # Ensures commit messages are not empty and have reasonable length
         msg=$(cat {1})
         if [ -z "$msg" ]; then
           echo "Commit message cannot be empty"
