@@ -4,6 +4,9 @@ import type { SQLiteDatabase } from "@/database/sqlite";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import { type Memory, MemoryTypeSchema } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
+import { MemoryRelationStorage } from "@/database/memory-relations";
+import { RelationSuggestionStorage } from "@/database/relation-suggestions";
+import { createRelationDetector } from "@/relations";
 
 export const StoreMemoryInputSchema = z.object({
   type: MemoryTypeSchema,
@@ -64,5 +67,45 @@ export async function storeMemory(
     experts: input.experts,
   });
 
+  // Non-blocking relation detection (fire and forget)
+  detectRelationsAsync(memory, db, vectors, embeddings).catch((err) =>
+    console.error("[doclea] Relation detection failed:", err),
+  );
+
   return memory;
+}
+
+/**
+ * Async helper for non-blocking relation detection
+ */
+async function detectRelationsAsync(
+  memory: Memory,
+  db: SQLiteDatabase,
+  vectors: VectorStore,
+  embeddings: EmbeddingClient,
+): Promise<void> {
+  try {
+    const rawDb = db.getDatabase();
+    const relationStorage = new MemoryRelationStorage(rawDb);
+    const suggestionStorage = new RelationSuggestionStorage(rawDb, relationStorage);
+
+    const detector = createRelationDetector(
+      db,
+      relationStorage,
+      suggestionStorage,
+      vectors,
+      embeddings,
+    );
+
+    const result = await detector.detectRelationsForMemory(memory);
+
+    if (result.autoApproved.length > 0 || result.suggestions.length > 0) {
+      console.log(
+        `[doclea] Relation detection for ${memory.id}: ${result.autoApproved.length} auto-approved, ${result.suggestions.length} suggestions`,
+      );
+    }
+  } catch (error) {
+    // Silently fail - relation detection is non-critical
+    console.warn("[doclea] Relation detection error:", error);
+  }
 }

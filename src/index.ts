@@ -32,6 +32,9 @@ import {
   findImplementations,
   getDependencyTree,
   analyzeImpact,
+  summarizeCode,
+  getUnsummarized,
+  batchUpdateSummaries,
   ScanCodeInputSchema,
   GetCodeNodeInputSchema,
   UpdateNodeSummaryInputSchema,
@@ -39,6 +42,9 @@ import {
   FindImplementationsInputSchema,
   GetDependencyTreeInputSchema,
   AnalyzeImpactInputSchema,
+  SummarizeCodeInputSchema,
+  GetUnsummarizedInputSchema,
+  BatchUpdateSummariesInputSchema,
 } from "./tools/code";
 import { buildContext, BuildContextInputSchema } from "./tools/context";
 import {
@@ -59,6 +65,16 @@ import {
   GetModelWindowsInputSchema,
   GetBudgetPresetsInputSchema,
 } from "./tools/budget";
+import {
+  detectRelations,
+  getSuggestions,
+  reviewSuggestion,
+  bulkReview,
+  DetectRelationsInputSchema,
+  GetSuggestionsInputSchema,
+  ReviewSuggestionInputSchema,
+  BulkReviewInputSchema,
+} from "./tools/relation-detection";
 
 // Initialize services
 const config = loadConfig();
@@ -546,6 +562,8 @@ server.registerTool(
         extractSummaries: args.extractSummaries ?? true,
       },
       db.getDatabase(),
+      vectors,
+      embeddings,
     );
     return {
       content: [
@@ -809,6 +827,149 @@ server.registerTool(
         { type: "text", text: "\n\n---\n\n" },
         { type: "text", text: JSON.stringify(result.result, null, 2) },
       ],
+    };
+  },
+);
+
+// Register Code Summary tools
+server.registerTool(
+  "doclea_summarize_code",
+  {
+    title: "Summarize Code",
+    description:
+      "Run heuristic summarization on code files and identify nodes that need AI-generated summaries. Returns a list of nodes with their code for the host LLM to generate summaries. Use batch_update_summaries to store the generated summaries.",
+    inputSchema: {
+      filePath: z
+        .string()
+        .optional()
+        .describe("Specific file to process"),
+      directory: z
+        .string()
+        .optional()
+        .describe("Directory to scan for code files"),
+      patterns: z
+        .array(z.string())
+        .optional()
+        .describe("Glob patterns for files (e.g., ['**/*.ts', '**/*.js'])"),
+      strategy: z
+        .enum(["heuristic", "hybrid"])
+        .default("hybrid")
+        .describe(
+          "Strategy: 'heuristic' (extract from docs only) or 'hybrid' (extract + flag for AI)",
+        ),
+      forceRegenerate: z
+        .boolean()
+        .default(false)
+        .describe("Regenerate existing summaries"),
+      preferAiForExported: z
+        .boolean()
+        .default(true)
+        .describe("Flag exported/public APIs for AI summarization"),
+    },
+  },
+  async (args) => {
+    const result = await summarizeCode(
+      {
+        filePath: args.filePath,
+        directory: args.directory,
+        patterns: args.patterns,
+        strategy: args.strategy ?? "hybrid",
+        forceRegenerate: args.forceRegenerate ?? false,
+        preferAiForExported: args.preferAiForExported ?? true,
+      },
+      db.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n**Stats:**\n" },
+        { type: "text", text: JSON.stringify(result.stats, null, 2) },
+        ...(result.needsAiSummary.length > 0
+          ? [
+              { type: "text" as const, text: "\n\n**Nodes Needing AI Summary:**\n" },
+              { type: "text" as const, text: JSON.stringify(result.needsAiSummary, null, 2) },
+            ]
+          : []),
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_get_unsummarized",
+  {
+    title: "Get Unsummarized Nodes",
+    description:
+      "Get code nodes that need AI-generated summaries. Returns nodes with their code content for the host LLM to analyze and generate summaries. Use batch_update_summaries to store the results.",
+    inputSchema: {
+      filePath: z.string().optional().describe("Filter by file path"),
+      limit: z
+        .number()
+        .min(1)
+        .max(50)
+        .default(10)
+        .describe("Max nodes to return (default: 10)"),
+      includeCode: z
+        .boolean()
+        .default(true)
+        .describe("Include code content for AI summarization"),
+      confidenceThreshold: z
+        .number()
+        .min(0)
+        .max(1)
+        .default(0.6)
+        .describe("Return nodes with confidence below this threshold"),
+    },
+  },
+  async (args) => {
+    const result = await getUnsummarized(
+      {
+        filePath: args.filePath,
+        limit: args.limit ?? 10,
+        includeCode: args.includeCode ?? true,
+        confidenceThreshold: args.confidenceThreshold ?? 0.6,
+      },
+      db.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: `\nTotal needing summaries: ${result.total}` },
+        { type: "text", text: "\n\n**Nodes:**\n" },
+        { type: "text", text: JSON.stringify(result.nodes, null, 2) },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_batch_update_summaries",
+  {
+    title: "Batch Update Summaries",
+    description:
+      "Update summaries for multiple code nodes at once. Use this after generating AI summaries for nodes returned by doclea_summarize_code or doclea_get_unsummarized.",
+    inputSchema: {
+      summaries: z
+        .array(
+          z.object({
+            nodeId: z.string().describe("Node ID to update"),
+            summary: z.string().describe("AI-generated summary"),
+          }),
+        )
+        .min(1)
+        .max(50)
+        .describe("Array of node summaries to update (1-50 items)"),
+    },
+  },
+  async (args) => {
+    const result = await batchUpdateSummaries(
+      {
+        summaries: args.summaries,
+      },
+      db.getDatabase(),
+    );
+    return {
+      content: [{ type: "text", text: result.message }],
     };
   },
 );
@@ -1242,6 +1403,169 @@ server.registerTool(
 				{
 					type: "text",
 					text: JSON.stringify(result, null, 2),
+				},
+			],
+		};
+	},
+);
+
+// Register Relation Detection tools
+server.registerTool(
+	"doclea_detect_relations",
+	{
+		title: "Detect Relations",
+		description:
+			"Automatically detect and suggest relationships between memories using semantic similarity, keyword overlap, file path overlap, and temporal proximity. High-confidence relations (≥0.85) are auto-approved; medium-confidence (0.6-0.85) stored as suggestions.",
+		inputSchema: {
+			memoryId: z.string().describe("Memory ID to detect relations for"),
+			semanticThreshold: z
+				.number()
+				.min(0)
+				.max(1)
+				.optional()
+				.describe("Minimum semantic similarity (default: 0.75)"),
+			autoApproveThreshold: z
+				.number()
+				.min(0)
+				.max(1)
+				.optional()
+				.describe("Confidence threshold for auto-approval (default: 0.85)"),
+		},
+	},
+	async (args) => {
+		const result = await detectRelations(
+			{
+				memoryId: args.memoryId,
+				semanticThreshold: args.semanticThreshold,
+				autoApproveThreshold: args.autoApproveThreshold,
+			},
+			db.getDatabase(),
+			db,
+			vectors,
+			embeddings,
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.result, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_get_suggestions",
+	{
+		title: "Get Relation Suggestions",
+		description:
+			"Get pending relation suggestions for review. Filter by source/target memory, detection method, or minimum confidence.",
+		inputSchema: {
+			sourceId: z.string().optional().describe("Filter by source memory ID"),
+			targetId: z.string().optional().describe("Filter by target memory ID"),
+			detectionMethod: z
+				.enum(["semantic", "keyword", "file_overlap", "temporal"])
+				.optional()
+				.describe("Filter by detection method"),
+			minConfidence: z
+				.number()
+				.min(0)
+				.max(1)
+				.optional()
+				.describe("Minimum confidence score"),
+			limit: z
+				.number()
+				.min(1)
+				.max(100)
+				.default(20)
+				.describe("Maximum results"),
+			offset: z.number().min(0).default(0).describe("Offset for pagination"),
+		},
+	},
+	async (args) => {
+		const result = await getSuggestions(
+			{
+				sourceId: args.sourceId,
+				targetId: args.targetId,
+				detectionMethod: args.detectionMethod,
+				minConfidence: args.minConfidence,
+				limit: args.limit ?? 20,
+				offset: args.offset ?? 0,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.suggestions, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_review_suggestion",
+	{
+		title: "Review Relation Suggestion",
+		description:
+			"Approve or reject a single relation suggestion. Approved suggestions create relations; rejected suggestions are marked as such.",
+		inputSchema: {
+			suggestionId: z.string().describe("Suggestion ID to review"),
+			action: z.enum(["approve", "reject"]).describe("Action to take"),
+		},
+	},
+	async (args) => {
+		const result = await reviewSuggestion(
+			{
+				suggestionId: args.suggestionId,
+				action: args.action,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [{ type: "text", text: result.message }],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_bulk_review",
+	{
+		title: "Bulk Review Suggestions",
+		description:
+			"Approve or reject multiple relation suggestions at once. Useful for quickly processing batches of suggestions.",
+		inputSchema: {
+			suggestionIds: z
+				.array(z.string())
+				.min(1)
+				.describe("Suggestion IDs to review"),
+			action: z.enum(["approve", "reject"]).describe("Action to take for all"),
+		},
+	},
+	async (args) => {
+		const result = await bulkReview(
+			{
+				suggestionIds: args.suggestionIds,
+				action: args.action,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{
+					type: "text",
+					text: JSON.stringify(
+						{
+							processed: result.processed,
+							relationsCreated: result.relationsCreated,
+							failed: result.failed,
+						},
+						null,
+						2,
+					),
 				},
 			],
 		};

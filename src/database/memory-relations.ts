@@ -151,6 +151,21 @@ export class MemoryRelationStorage {
 	}
 
 	/**
+	 * Check if a relation exists between two memories (in either direction)
+	 * Used by relation detection to avoid duplicate suggestions
+	 */
+	async relationExists(sourceId: string, targetId: string): Promise<boolean> {
+		const stmt = this.db.prepare(`
+			SELECT 1 FROM memory_relations
+			WHERE (source_id = ? AND target_id = ?)
+			   OR (source_id = ? AND target_id = ?)
+			LIMIT 1
+		`);
+		const result = stmt.get(sourceId, targetId, targetId, sourceId);
+		return !!result;
+	}
+
+	/**
 	 * Delete all relationships for a memory (cascade helper)
 	 */
 	async deleteAllRelations(memoryId: string): Promise<number> {

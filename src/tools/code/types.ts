@@ -94,13 +94,36 @@ export interface ScanStats {
 	embeddingsRegenerated: number;
 }
 
+export type SummaryStrategy = "heuristic" | "hybrid";
+
 export interface SummaryConfig {
 	enabled: boolean;
+	strategy?: SummaryStrategy;
+	preferAiForExported?: boolean;
+	minConfidenceThreshold?: number;
 }
 
 export interface CodeUnitSummary {
 	summary: string;
-	generatedBy: "docstring" | "comment" | "signature" | "client";
+	generatedBy: "docstring" | "comment" | "signature" | "ai" | "client";
+	confidence: number;
+	needsAiSummary?: boolean;
+}
+
+export interface SummaryStats {
+	totalNodes: number;
+	summarized: number;
+	needsAiSummary: number;
+	bySource: Record<string, number>;
+}
+
+export interface UnsummarizedNode {
+	nodeId: string;
+	name: string;
+	type: CodeNodeType;
+	filePath: string;
+	code: string;
+	currentSummary?: string;
 	confidence: number;
 }
 

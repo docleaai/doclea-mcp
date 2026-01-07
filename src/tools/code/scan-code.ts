@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { Database } from "bun:sqlite";
 import { CodeGraphStorage } from "../../database/code-graph";
+import type { EmbeddingClient } from "../../embeddings/provider";
+import type { VectorStore } from "../../vectors/interface";
 import { ChangeDetector } from "./change-detector";
 import { IncrementalScanner } from "./incremental-scanner";
 import { CodeSummarizer } from "./summarizer";
@@ -40,6 +42,8 @@ let globalWatcher: CodeWatcher | null = null;
 export async function scanCode(
 	input: ScanCodeInput,
 	db: Database,
+	vectorStore?: VectorStore,
+	embeddings?: EmbeddingClient,
 ): Promise<{
 	result: IncrementalScanResult | null;
 	watcherStarted: boolean;
@@ -54,6 +58,8 @@ export async function scanCode(
 		changeDetector,
 		codeGraph,
 		summarizer,
+		vectorStore,
+		embeddings,
 	);
 
 	// Discover files

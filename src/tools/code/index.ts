@@ -43,4 +43,22 @@ export {
 
 export { GraphExtractor } from "./graph-extractor";
 
+export {
+	type SummarizeCodeInput,
+	SummarizeCodeInputSchema,
+	summarizeCode,
+} from "./summarize-code";
+
+export {
+	type GetUnsummarizedInput,
+	GetUnsummarizedInputSchema,
+	getUnsummarized,
+} from "./get-unsummarized";
+
+export {
+	type BatchUpdateSummariesInput,
+	BatchUpdateSummariesInputSchema,
+	batchUpdateSummaries,
+} from "./batch-update-summaries";
+
 export * from "./types";

@@ -222,6 +222,80 @@ export class SQLiteDatabase {
     return rows.map((row) => this.rowToMemory(row));
   }
 
+  /**
+   * Find memories that reference any of the given files
+   * Used for file overlap detection in relation detection
+   */
+  findByRelatedFiles(files: string[], excludeId?: string): Memory[] {
+    if (files.length === 0) return [];
+
+    // Build a query that checks if any of the files appear in related_files JSON array
+    // SQLite JSON functions: json_each() to iterate over array elements
+    const placeholders = files.map(() => "?").join(", ");
+    let query = `
+      SELECT DISTINCT m.* FROM memories m, json_each(m.related_files) AS rf
+      WHERE rf.value IN (${placeholders})
+    `;
+    const params: (string | number)[] = [...files];
+
+    if (excludeId) {
+      query += " AND m.id != ?";
+      params.push(excludeId);
+    }
+
+    query += " ORDER BY m.accessed_at DESC LIMIT 100";
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as MemoryRow[];
+    return rows.map((row) => this.rowToMemory(row));
+  }
+
+  /**
+   * Find memories created within a time range
+   * Used for temporal proximity detection in relation detection
+   */
+  findByTimeRange(startTime: number, endTime: number, excludeId?: string): Memory[] {
+    let query = "SELECT * FROM memories WHERE created_at >= ? AND created_at <= ?";
+    const params: (string | number)[] = [startTime, endTime];
+
+    if (excludeId) {
+      query += " AND id != ?";
+      params.push(excludeId);
+    }
+
+    query += " ORDER BY created_at DESC LIMIT 100";
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as MemoryRow[];
+    return rows.map((row) => this.rowToMemory(row));
+  }
+
+  /**
+   * Search memories by tags (used for keyword overlap detection)
+   */
+  searchByTags(tags: string[], excludeId?: string): Memory[] {
+    if (tags.length === 0) return [];
+
+    // Build a query that checks if any tag matches
+    const placeholders = tags.map(() => "?").join(", ");
+    let query = `
+      SELECT DISTINCT m.* FROM memories m, json_each(m.tags) AS t
+      WHERE LOWER(t.value) IN (${placeholders})
+    `;
+    const params: (string | number)[] = tags.map((t) => t.toLowerCase());
+
+    if (excludeId) {
+      query += " AND m.id != ?";
+      params.push(excludeId);
+    }
+
+    query += " ORDER BY m.accessed_at DESC LIMIT 100";
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as MemoryRow[];
+    return rows.map((row) => this.rowToMemory(row));
+  }
+
   // Document operations
   createDocument(doc: Omit<Document, "createdAt" | "updatedAt">): Document {
     const now = Math.floor(Date.now() / 1000);

@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { CodeChunk } from "../../chunking/code";
 import { chunkCode } from "../../chunking/code";
 import type { CodeGraphStorage } from "../../database/code-graph";
+import type { EmbeddingClient } from "../../embeddings/provider";
+import type { VectorPayload, VectorStore } from "../../vectors/interface";
 import type { ChangeDetector } from "./change-detector";
 import { GraphExtractor } from "./graph-extractor";
 import type { CodeSummarizer } from "./summarizer";
@@ -23,6 +26,9 @@ export class IncrementalScanner {
 		private changeDetector: ChangeDetector,
 		private codeGraph: CodeGraphStorage,
 		private summarizer?: CodeSummarizer,
+		// RAG layer dependencies (optional - scanner works without them for KAG-only mode)
+		private vectorStore?: VectorStore,
+		private embeddings?: EmbeddingClient,
 	) {
 		this.graphExtractor = new GraphExtractor();
 	}
@@ -122,6 +128,34 @@ export class IncrementalScanner {
 				// KAG: Upsert node
 				await this.codeGraph.upsertNode(node);
 				stats.nodesAdded++;
+
+				// RAG: Create embedding for function/class nodes
+				if (
+					this.vectorStore &&
+					this.embeddings &&
+					(node.type === "function" || node.type === "class")
+				) {
+					try {
+						// Find the corresponding chunk for this node (match by name, fallback to first matching type)
+						const chunk = chunks.find(
+							(c) =>
+								c.metadata.name === node.name ||
+								(c.metadata.isFunction && node.type === "function" && c.metadata.name === node.name) ||
+								(c.metadata.isClass && node.type === "class" && c.metadata.name === node.name),
+						) || chunks.find(
+							(c) =>
+								(c.metadata.isFunction && node.type === "function") ||
+								(c.metadata.isClass && node.type === "class"),
+						);
+						if (chunk) {
+							await this.createCodeEmbedding(node, chunk, file.path);
+							stats.documentsUpdated++;
+							stats.embeddingsRegenerated++;
+						}
+					} catch (error) {
+						console.warn(`Failed to create embedding for ${node.name}:`, error);
+					}
+				}
 			}
 
 			// Upsert edges
@@ -172,6 +206,19 @@ export class IncrementalScanner {
 		const nodes = await this.codeGraph.getNodesByPath(filePath);
 
 		for (const node of nodes) {
+			// RAG: Delete vector embedding for this node
+			if (this.vectorStore && (node.type === "function" || node.type === "class")) {
+				try {
+					const vectorId = this.generateVectorId(filePath, node.name);
+					const deleted = await this.vectorStore.delete(vectorId);
+					if (deleted) {
+						stats.embeddingsRegenerated++;
+					}
+				} catch (error) {
+					console.warn(`Failed to delete embedding for ${node.name}:`, error);
+				}
+			}
+
 			// Delete edges connected to this node
 			const edgesDeleted = await this.codeGraph.deleteEdgesByNode(node.id);
 			stats.edgesDeleted += edgesDeleted;
@@ -180,10 +227,6 @@ export class IncrementalScanner {
 			await this.codeGraph.deleteNode(node.id);
 			stats.nodesDeleted++;
 		}
-
-		// RAG: Would delete documents here
-		// For now we're focusing on KAG implementation
-		// stats.documentsUpdated += deletedDocs;
 	}
 
 	/**
@@ -276,5 +319,64 @@ export class IncrementalScanner {
 			console.warn(`Failed to chunk file ${filePath}:`, error);
 			return [];
 		}
+	}
+
+	/**
+	 * Create embedding for a code node and store in vector store
+	 */
+	private async createCodeEmbedding(
+		node: CodeNode,
+		chunk: CodeChunk,
+		filePath: string,
+	): Promise<void> {
+		if (!this.vectorStore || !this.embeddings) return;
+
+		// Generate embedding text: name + signature + summary + code snippet
+		const codeSnippet = chunk.content.slice(0, 500); // First 500 chars of code
+		const embeddingText = [
+			node.name,
+			node.signature || "",
+			node.summary || "",
+			codeSnippet,
+		]
+			.filter(Boolean)
+			.join("\n");
+
+		// Generate embedding
+		const vector = await this.embeddings.embed(embeddingText);
+
+		// Create vector payload
+		const payload: VectorPayload = {
+			memoryId: node.id,
+			type: node.type,
+			title: node.name,
+			tags: [
+				chunk.metadata.language,
+				...(node.isExported ? ["exported"] : []),
+			],
+			relatedFiles: [filePath],
+			importance: node.type === "function" || node.type === "class" ? 0.7 : 0.5,
+			// Additional code-specific metadata
+			signature: node.signature,
+			startLine: node.startLine,
+			endLine: node.endLine,
+		};
+
+		// Generate deterministic vector ID
+		const vectorId = this.generateVectorId(filePath, node.name);
+
+		// Upsert to vector store
+		await this.vectorStore.upsert(vectorId, vector, payload);
+	}
+
+	/**
+	 * Generate deterministic vector ID based on file path and node name
+	 */
+	private generateVectorId(filePath: string, nodeName: string): string {
+		const hash = createHash("sha256")
+			.update(`${filePath}:${nodeName}`)
+			.digest("hex")
+			.slice(0, 16);
+		return `code_${hash}`;
 	}
 }

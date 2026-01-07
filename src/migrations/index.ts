@@ -17,6 +17,7 @@ export type {
 import { migration001Initial } from "./001_initial";
 import { migration002CodeGraph } from "./002_code_graph";
 import { migration003MemoryRelations } from "./003_memory_relations";
+import { migration004RelationSuggestions } from "./004_relation_suggestions";
 
 /**
  * All migrations in version order
@@ -26,6 +27,7 @@ export const migrations = [
   migration001Initial,
   migration002CodeGraph,
   migration003MemoryRelations,
+  migration004RelationSuggestions,
 ];
 
 /**

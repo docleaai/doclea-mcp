@@ -7,12 +7,17 @@ import type { CodeUnitSummary, SummaryConfig } from "./types";
  *
  * For AI-generated summaries, the LLM client (Claude Desktop, etc)
  * can generate them and store back via MCP tools.
+ *
+ * Supports two strategies:
+ * - 'heuristic': Only extracts from existing docs (fast, free)
+ * - 'hybrid': Extracts + flags low-confidence for AI generation
  */
 export class CodeSummarizer {
 	constructor(private config: SummaryConfig) {}
 
 	/**
 	 * Extract summary from code documentation
+	 * In hybrid mode, flags low-confidence results for AI generation
 	 */
 	async summarize(chunk: CodeChunk): Promise<CodeUnitSummary> {
 		if (!this.config.enabled) {
@@ -20,9 +25,35 @@ export class CodeSummarizer {
 				summary: "",
 				generatedBy: "signature",
 				confidence: 0,
+				needsAiSummary: false,
 			};
 		}
 
+		// Get heuristic summary first
+		const result = await this.heuristicSummary(chunk);
+
+		// In hybrid mode, determine if AI summary is needed
+		if (this.config.strategy === "hybrid") {
+			const threshold = this.config.minConfidenceThreshold ?? 0.6;
+
+			// Flag low-confidence results for AI
+			if (result.confidence < threshold) {
+				result.needsAiSummary = true;
+			}
+
+			// Also flag exported APIs if configured
+			if (this.config.preferAiForExported && this.isExported(chunk)) {
+				result.needsAiSummary = true;
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * Extract summary using heuristics only (JSDoc, docstrings, comments)
+	 */
+	async heuristicSummary(chunk: CodeChunk): Promise<CodeUnitSummary> {
 		// 1. Try to extract JSDoc/docstring
 		const docstring = this.extractDocstring(
 			chunk.content,
@@ -33,6 +64,7 @@ export class CodeSummarizer {
 				summary: docstring,
 				generatedBy: "docstring",
 				confidence: 0.9,
+				needsAiSummary: false,
 			};
 		}
 
@@ -43,6 +75,7 @@ export class CodeSummarizer {
 				summary: comment,
 				generatedBy: "comment",
 				confidence: 0.7,
+				needsAiSummary: false,
 			};
 		}
 
@@ -52,7 +85,55 @@ export class CodeSummarizer {
 			summary: fromSignature,
 			generatedBy: "signature",
 			confidence: 0.5,
+			needsAiSummary: false,
 		};
+	}
+
+	/**
+	 * Check if code is exported (public API)
+	 */
+	private isExported(chunk: CodeChunk): boolean {
+		// Check metadata first
+		if (chunk.metadata.isExported === true) {
+			return true;
+		}
+
+		const content = chunk.content;
+		const lines = content.split("\n");
+
+		// Check all lines for export keywords (not just first line, as there may be docs/comments)
+		for (const line of lines) {
+			const trimmed = line.trim();
+
+			// Skip empty lines and comments
+			if (
+				!trimmed ||
+				trimmed.startsWith("//") ||
+				trimmed.startsWith("/*") ||
+				trimmed.startsWith("*") ||
+				trimmed.startsWith("///") ||
+				trimmed.startsWith("#")
+			) {
+				continue;
+			}
+
+			// Check for export keywords on actual code lines
+			if (
+				trimmed.startsWith("export ") ||
+				trimmed.startsWith("public ") ||
+				trimmed.startsWith("pub ") ||
+				trimmed.includes(" export ") ||
+				trimmed.includes(" public ") ||
+				trimmed.includes(" pub ")
+			) {
+				return true;
+			}
+
+			// Stop at the first actual code line that doesn't have export
+			break;
+		}
+
+		return false;
 	}
 
 	/**
