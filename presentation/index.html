@@ -27,7 +27,7 @@
       --text-bright: hsl(0, 0%, 98%);
       --text-primary: hsl(240, 10%, 88%);
       --text-secondary: hsl(240, 8%, 60%);
-      --text-muted: hsl(240, 8%, 40%);
+      --text-muted: hsl(240, 8%, 55%);
 
       /* Accents - vibrant for dark glass */
       --accent-hot: hsl(350, 90%, 62%);
@@ -1313,6 +1313,1609 @@
       line-height: 1.6;
     }
 
+    /* Features Section */
+    .features-section {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .features-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .features-header .section-subtitle {
+      max-width: 650px;
+      margin: 1rem auto 0;
+    }
+
+    /* Why Us Section */
+    .why-us-section {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .why-us-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .why-us-header .section-subtitle {
+      max-width: 650px;
+      margin: 1rem auto 0;
+    }
+
+    /* Business Section */
+    .business-section {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .business-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .business-header .section-subtitle {
+      max-width: 650px;
+      margin: 1rem auto 0;
+    }
+
+    /* Pricing Tiers */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 5rem;
+    }
+
+    @media (max-width: 1100px) {
+      .pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pricing-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: var(--glass-shadow-lg);
+    }
+
+    .pricing-card.featured {
+      border-color: var(--accent-electric);
+      background: rgba(140, 120, 255, 0.08);
+    }
+
+    .pricing-card.featured::before {
+      content: 'Most Popular';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--accent-electric), var(--accent-cyan));
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.35rem 1rem;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pricing-tier {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-electric);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+
+    .pricing-price {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.25rem;
+    }
+
+    .pricing-price span {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .pricing-desc {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      min-height: 2.5rem;
+    }
+
+    .pricing-features {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .pricing-features li svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent-success);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .pricing-btn {
+      width: 100%;
+      padding: 0.875rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      display: block;
+      text-decoration: none;
+    }
+
+    .pricing-btn.primary {
+      background: linear-gradient(135deg, var(--accent-electric), var(--accent-cyan));
+      color: white;
+      border: none;
+    }
+
+    .pricing-btn.primary:hover {
+      box-shadow: var(--glow-electric);
+      transform: translateY(-2px);
+    }
+
+    .pricing-btn.secondary {
+      background: var(--glass-white);
+      color: var(--text-bright);
+      border: 1px solid var(--glass-white-border);
+    }
+
+    .pricing-btn.secondary:hover {
+      background: var(--glass-white-strong);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Cloud Features Section */
+    .cloud-features-section {
+      margin-bottom: 5rem;
+    }
+
+    .cloud-features-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .cloud-features-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .cloud-features-header p {
+      color: var(--text-secondary);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 20px;
+      padding: 1.75rem;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: var(--glass-shadow-lg);
+    }
+
+    .feature-card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--glass-white-strong);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .feature-card-icon svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-electric);
+    }
+
+    .feature-card-icon.cyan svg {
+      color: var(--accent-cyan);
+    }
+
+    .feature-card-icon.success svg {
+      color: var(--accent-success);
+    }
+
+    .feature-card-icon.warm svg {
+      color: var(--accent-warm);
+    }
+
+    .feature-card h4 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .feature-card > p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .feature-demo {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      overflow-x: auto;
+    }
+
+    .feature-demo .cmd {
+      color: var(--accent-cyan);
+    }
+
+    .feature-demo .highlight {
+      color: var(--accent-electric);
+    }
+
+    .feature-demo .success {
+      color: var(--accent-success);
+    }
+
+    .feature-demo .warn {
+      color: var(--accent-warm);
+    }
+
+    .feature-demo .muted {
+      color: var(--text-muted);
+    }
+
+    /* Core Capabilities Section - Bento Grid */
+    .core-capabilities-section {
+      margin-bottom: 5rem;
+    }
+
+    .core-capabilities-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .core-capabilities-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .core-capabilities-header p {
+      color: var(--text-secondary);
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: repeat(4, auto);
+      gap: 1rem;
+    }
+
+    .bento-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bento-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: var(--glass-shadow);
+    }
+
+    /* Explicit grid placements - Row 1 */
+    .bento-card:nth-child(1) { grid-column: span 5; } /* Bootstrap */
+    .bento-card:nth-child(2) { grid-column: span 4; } /* Expertise */
+    .bento-card:nth-child(3) { grid-column: span 3; } /* Smart Commits */
+
+    /* Row 2 */
+    .bento-card:nth-child(4) { grid-column: span 4; } /* Docs Gen */
+    .bento-card:nth-child(5) { grid-column: span 4; } /* PR Desc */
+    .bento-card:nth-child(6) { grid-column: span 4; } /* Doc Drift */
+
+    /* Row 3 */
+    .bento-card:nth-child(7) { grid-column: span 5; } /* Import */
+    .bento-card:nth-child(8) { grid-column: span 3; } /* Changelog */
+    .bento-card:nth-child(9) { grid-column: span 4; } /* ADR */
+
+    /* Row 4 */
+    .bento-card:nth-child(10) { grid-column: span 4; } /* Release */
+    .bento-card:nth-child(11) { grid-column: span 8; } /* Storage */
+
+    @media (max-width: 1024px) {
+      .bento-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+      .bento-card:nth-child(1) { grid-column: span 6; }
+      .bento-card:nth-child(2) { grid-column: span 3; }
+      .bento-card:nth-child(3) { grid-column: span 3; }
+      .bento-card:nth-child(4) { grid-column: span 3; }
+      .bento-card:nth-child(5) { grid-column: span 3; }
+      .bento-card:nth-child(6) { grid-column: span 3; }
+      .bento-card:nth-child(7) { grid-column: span 3; }
+      .bento-card:nth-child(8) { grid-column: span 3; }
+      .bento-card:nth-child(9) { grid-column: span 3; }
+      .bento-card:nth-child(10) { grid-column: span 3; }
+      .bento-card:nth-child(11) { grid-column: span 6; }
+    }
+
+    @media (max-width: 640px) {
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+      .bento-card { grid-column: span 1 !important; }
+    }
+
+    .bento-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .bento-card-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--glass-white-strong);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .bento-card-icon svg {
+      width: 18px;
+      height: 18px;
+      color: var(--accent-electric);
+    }
+
+    .bento-card-icon.cyan svg { color: var(--accent-cyan); }
+    .bento-card-icon.success svg { color: var(--accent-success); }
+    .bento-card-icon.warm svg { color: var(--accent-warm); }
+    .bento-card-icon.warn svg { color: var(--accent-warm); }
+
+    .bento-card h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .bento-card > p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+    }
+
+    .bento-card .bento-demo {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      flex: 1;
+    }
+
+    .bento-demo .cmd { color: var(--accent-cyan); }
+    .bento-demo .highlight { color: var(--accent-electric); }
+    .bento-demo .success { color: var(--accent-success); }
+    .bento-demo .warn { color: var(--accent-warm); }
+    .bento-demo .muted { color: var(--text-muted); }
+
+    /* Competitive Section */
+    .competitive-section {
+      margin-bottom: 5rem;
+    }
+
+    .competitive-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .competitive-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .competitive-header p {
+      color: var(--text-secondary);
+    }
+
+    .competitive-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .competitive-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .competitive-table-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+      overflow-x: auto;
+    }
+
+    .competitive-table-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .competitive-table-card h4 svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-hot);
+    }
+
+    .competitive-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .competitive-table th,
+    .competitive-table td {
+      text-align: left;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .competitive-table th {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .competitive-table td {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .competitive-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .competitive-table .competitor {
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .competitive-table .weakness {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .advantages-card {
+      background: linear-gradient(135deg, rgba(140, 120, 255, 0.08), rgba(0, 200, 180, 0.04));
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(140, 120, 255, 0.2);
+      border-radius: 24px;
+      padding: 2rem;
+    }
+
+    .advantages-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .advantages-card h4 svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-success);
+    }
+
+    .advantages-list {
+      list-style: none;
+    }
+
+    .advantages-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .advantages-list li:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .advantages-list li svg {
+      width: 18px;
+      height: 18px;
+      color: var(--accent-success);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .advantages-list li strong {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-bright);
+      margin-bottom: 0.25rem;
+    }
+
+    .advantages-list li span {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* MCP Integrations Section */
+    .integrations-section {
+      margin-bottom: 5rem;
+    }
+
+    .integrations-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .integrations-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .integrations-header p {
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .mcp-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, hsla(260, 85%, 65%, 0.2), hsla(200, 90%, 55%, 0.2));
+      border: 1px solid hsla(260, 85%, 65%, 0.3);
+      border-radius: 20px;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent-electric);
+      margin-bottom: 1.5rem;
+    }
+
+    .mcp-badge svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .integrations-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .integrations-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 500px) {
+      .integrations-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .integration-card {
+      background: rgba(25, 25, 35, 0.6);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .integration-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .integration-card .icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      background: var(--glass-white-strong);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .integration-card .icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--text-bright);
+    }
+
+    .integration-card h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.35rem;
+    }
+
+    .integration-card p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .integration-card.coming-soon {
+      opacity: 0.6;
+    }
+
+    .integration-card.coming-soon h4::after {
+      content: " (Soon)";
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* Storage Strategy Comparison */
+    .storage-comparison-section {
+      margin-bottom: 5rem;
+    }
+
+    .storage-comparison-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .storage-comparison-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .storage-comparison-header p {
+      color: var(--text-secondary);
+    }
+
+    .storage-table-wrapper {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .storage-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .storage-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--glass-white-border);
+    }
+
+    .storage-table td {
+      padding: 0.85rem 1rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .storage-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .storage-table td:first-child {
+      color: var(--text-bright);
+      font-weight: 500;
+    }
+
+    .storage-table tr.highlight-row td {
+      background: rgba(140, 100, 255, 0.08);
+    }
+
+    .storage-table tr.highlight-row td:first-child {
+      color: var(--accent-electric);
+    }
+
+    .storage-table .check {
+      color: var(--accent-success);
+    }
+
+    .storage-table .cross {
+      color: var(--text-muted);
+    }
+
+    .storage-table .partial {
+      color: var(--accent-warm);
+    }
+
+    /* Roadmap Section */
+    .roadmap-section {
+      margin-bottom: 5rem;
+    }
+
+    .roadmap-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .roadmap-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .roadmap-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .roadmap-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .roadmap-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .roadmap-card.active {
+      border-color: var(--accent-electric);
+      background: rgba(140, 120, 255, 0.05);
+    }
+
+    .roadmap-card.active::before {
+      content: 'Current';
+      position: absolute;
+      top: -10px;
+      right: 20px;
+      background: var(--accent-electric);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .roadmap-phase {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.875rem;
+      background: var(--glass-white-strong);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .roadmap-card.active .roadmap-phase {
+      background: linear-gradient(135deg, var(--accent-electric), var(--accent-cyan));
+      color: white;
+    }
+
+    .roadmap-phase svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .roadmap-card h4 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .roadmap-card > p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .roadmap-goals {
+      margin-bottom: 1.25rem;
+    }
+
+    .roadmap-goals h5 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.75rem;
+    }
+
+    .roadmap-goals ul {
+      list-style: none;
+    }
+
+    .roadmap-goals li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .roadmap-goals li svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-success);
+    }
+
+    .roadmap-actions h5 {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.75rem;
+    }
+
+    .roadmap-actions ul {
+      list-style: none;
+    }
+
+    .roadmap-actions li {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      padding-left: 1rem;
+      position: relative;
+    }
+
+    .roadmap-actions li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--text-muted);
+    }
+
+    /* Architecture Comparison */
+    .architecture-section {
+      margin-bottom: 5rem;
+    }
+
+    .architecture-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .architecture-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .architecture-header p {
+      color: var(--text-secondary);
+    }
+
+    .architecture-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 2rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .architecture-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    .arch-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+    }
+
+    .arch-card.local {
+      border-color: rgba(160, 180, 190, 0.2);
+    }
+
+    .arch-card.cloud {
+      border-color: var(--accent-electric);
+      background: rgba(140, 120, 255, 0.05);
+    }
+
+    .arch-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+
+    .arch-card.local .arch-badge {
+      background: rgba(160, 180, 190, 0.15);
+      color: var(--text-secondary);
+    }
+
+    .arch-card.cloud .arch-badge {
+      background: linear-gradient(135deg, var(--accent-electric), var(--accent-cyan));
+      color: white;
+    }
+
+    .arch-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .arch-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+    }
+
+    .arch-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .arch-stack-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .arch-stack-item svg {
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
+    }
+
+    .arch-card.cloud .arch-stack-item svg {
+      color: var(--accent-electric);
+    }
+
+    .arch-stack-item span {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .arch-features {
+      list-style: none;
+    }
+
+    .arch-features li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .arch-features li svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .arch-card.local .arch-features li svg {
+      color: var(--text-muted);
+    }
+
+    .arch-card.cloud .arch-features li svg {
+      color: var(--accent-success);
+    }
+
+    .arch-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 900px) {
+      .arch-divider {
+        transform: rotate(90deg);
+        padding: 1rem 0;
+      }
+    }
+
+    .arch-vs {
+      width: 60px;
+      height: 60px;
+      background: var(--glass-white-strong);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Business Model */
+    .business-section {
+      margin-bottom: 5rem;
+    }
+
+    .business-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .business-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .business-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .business-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .business-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .business-card-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--glass-white-strong);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+
+    .business-card-icon svg {
+      width: 28px;
+      height: 28px;
+      color: var(--accent-electric);
+    }
+
+    .business-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+
+    .business-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .business-card .stat {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-success), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Margins Table */
+    .margins-table {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-white-border);
+      border-radius: 24px;
+      padding: 2rem;
+      margin-top: 2rem;
+      overflow-x: auto;
+    }
+
+    .margins-table h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .margins-table h4 svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent-success);
+    }
+
+    .margins-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .margins-table th,
+    .margins-table td {
+      text-align: left;
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .margins-table th {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .margins-table td {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+    }
+
+    .margins-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .margins-table .stage {
+      font-weight: 600;
+      color: var(--text-bright);
+    }
+
+    .margins-table .margin {
+      font-weight: 700;
+      color: var(--accent-success);
+    }
+
+    /* Security Section */
+    .security-section {
+      margin-bottom: 5rem;
+    }
+
+    .security-card {
+      background: rgba(25, 25, 35, 0.7);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(160, 80, 255, 0.2);
+      border-radius: 24px;
+      padding: 3rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .security-card {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+    }
+
+    .security-content h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .security-content h3 svg {
+      width: 24px;
+      height: 24px;
+      color: var(--accent-electric);
+    }
+
+    .security-content p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+    }
+
+    .security-features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .security-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(140, 120, 255, 0.1);
+      border: 1px solid rgba(140, 120, 255, 0.2);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .security-tag svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-electric);
+    }
+
+    .security-diagram {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      padding: 2rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .security-diagram .highlight {
+      color: var(--accent-electric);
+    }
+
+    .security-diagram .success {
+      color: var(--accent-success);
+    }
+
+    /* Future Product */
+    .future-section {
+      margin-bottom: 3rem;
+    }
+
+    .future-card {
+      background: linear-gradient(135deg, rgba(140, 120, 255, 0.1), rgba(0, 200, 180, 0.05));
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid rgba(140, 120, 255, 0.2);
+      border-radius: 24px;
+      padding: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .future-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-electric), var(--accent-cyan));
+    }
+
+    .future-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(140, 120, 255, 0.2);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-electric);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+    }
+
+    .future-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .future-content {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .future-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+    }
+
+    .future-content h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 1rem;
+    }
+
+    .future-content > div > p {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+    }
+
+    .future-segments {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 640px) {
+      .future-segments {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .future-segment {
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .future-segment h5 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-bright);
+      margin-bottom: 0.25rem;
+    }
+
+    .future-segment p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .future-demo {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .future-demo-header {
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .future-demo-header svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .future-demo-body {
+      padding: 1.5rem;
+    }
+
+    .future-demo-msg {
+      margin-bottom: 1rem;
+    }
+
+    .future-demo-msg:last-child {
+      margin-bottom: 0;
+    }
+
+    .future-demo-msg.user {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .future-demo-msg.bot {
+      background: rgba(140, 120, 255, 0.1);
+      border-left: 2px solid var(--accent-electric);
+      padding: 1rem;
+      border-radius: 0 12px 12px 0;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .future-demo-msg.bot strong {
+      color: var(--text-bright);
+    }
+
+    .future-demo-msg.bot code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+    }
+
+    .future-pricing {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .future-pricing h4 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+
+    .future-pricing-tiers {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .future-pricing-tier {
+      padding: 0.75rem 1.25rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .future-pricing-tier strong {
+      display: block;
+      font-size: 1.1rem;
+      color: var(--text-bright);
+      margin-bottom: 0.25rem;
+    }
+
+    .future-pricing-tier span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
     /* ============================================
        FINAL CTA
     ============================================ */
@@ -1659,15 +3262,16 @@
   <!-- Header -->
   <header class="header" id="header">
     <div class="header-inner">
-      <a href="#" class="logo">
+      <a href="#top" class="logo">
         <div class="logo-icon"><i data-lucide="brain"></i></div>
         <span>doclea</span>
       </a>
 
       <nav class="nav">
-        <a href="#calculator" class="nav-link">The Problem</a>
-        <a href="#objections" class="nav-link">Objections</a>
-        <a href="#solution" class="nav-link">Solution</a>
+        <a href="#problem" class="nav-link">Problem</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#why-us" class="nav-link">Why Us</a>
+        <a href="#business" class="nav-link">Business</a>
       </nav>
 
       <div class="header-cta">
@@ -1684,15 +3288,16 @@
 
   <!-- Mobile Navigation -->
   <nav class="mobile-nav" id="mobile-nav">
-    <a href="#calculator">The Problem</a>
-    <a href="#objections">Objections</a>
-    <a href="#solution">Solution</a>
+    <a href="#problem">Problem</a>
+    <a href="#features">Features</a>
+    <a href="#why-us">Why Us</a>
+    <a href="#business">Business</a>
     <a href="#">Documentation</a>
     <a href="#" style="color: var(--accent-electric);">Get Started</a>
   </nav>
 
   <!-- Hero Section -->
-  <section class="hero">
+  <section class="hero" id="top">
     <div class="container">
       <div class="hero-content">
         <div class="hero-text">
@@ -1737,7 +3342,7 @@
   </section>
 
   <!-- Pain Section -->
-  <section class="pain-section">
+  <section class="pain-section" id="problem">
     <div class="container">
       <div class="section-label reveal">The daily grind</div>
       <h2 class="section-title reveal stagger-1">
@@ -2012,6 +3617,1052 @@
           <p>Inject summaries instead of files. Your AI gets better answers with less input.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="features-header">
+        <div class="section-label reveal">What it does</div>
+        <h2 class="section-title reveal stagger-1">Features</h2>
+        <p class="section-subtitle reveal stagger-2">
+          Everything you need to make AI-assisted development actually work.
+        </p>
+      </div>
+
+      <!-- Product Features -->
+      <div class="cloud-features-section reveal">
+        <div class="cloud-features-header">
+          <h3>Product Features</h3>
+          <p>Core functionality for developers and teams.</p>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon">
+                <i data-lucide="search"></i>
+              </div>
+              <h4>Ask Your Codebase</h4>
+            </div>
+            <p>Natural language queries with deep context. Get answers that reference actual code, decisions, and experts.</p>
+            <div class="feature-demo">
+              <span class="muted">User:</span> "How do we handle failed payments?"<br><br>
+              <span class="highlight">DevMemory:</span> Based on your codebase:<br>
+              1. Webhook receives Stripe event <span class="cmd">(src/webhooks/stripe.ts:47)</span><br>
+              2. Failed payments trigger retry logic (max 3)<br>
+              3. After 3 failures → <span class="cmd">sendPaymentFailedEmail()</span><br>
+              4. Decision: Don't auto-cancel, just restrict<br><br>
+              <span class="success">@alex wrote most of this code.</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon cyan">
+                <i data-lucide="compass"></i>
+              </div>
+              <h4>Onboarding Mode</h4>
+            </div>
+            <p>New dev joins → DevMemory becomes their guide. Project structure, setup, who to ask — all in one command.</p>
+            <div class="feature-demo">
+              <span class="cmd">$ devmemory onboard</span><br><br>
+              Welcome to <span class="highlight">Acme Corp</span> codebase!<br><br>
+              <span class="success">Project Structure</span><br>
+              ├── Next.js 14 + App Router<br>
+              ├── Database: Prisma + PostgreSQL<br>
+              ├── Key: We don't use Redux <span class="muted">(AUTH-001)</span><br><br>
+              <span class="success">Who to Ask</span><br>
+              ├── Auth → <span class="highlight">@sarah</span><br>
+              ├── Payments → <span class="highlight">@alex</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon success">
+                <i data-lucide="git-pull-request"></i>
+              </div>
+              <h4>Code Review Assistant</h4>
+            </div>
+            <p>PR opened → DevMemory adds context automatically. Relevant decisions, patterns to follow, potential issues.</p>
+            <div class="feature-demo">
+              <span class="highlight">DevMemory Context</span><br><br>
+              This PR touches authentication.<br><br>
+              <span class="success">Relevant decisions:</span><br>
+              ├── AUTH-001: Rotating refresh tokens<br>
+              ├── AUTH-003: Never use localStorage<br><br>
+              <span class="warn">Potential issue:</span><br>
+              └── Line 47: localStorage token <span class="warn">→ violates AUTH-003</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon warm">
+                <i data-lucide="message-circle"></i>
+              </div>
+              <h4>Slack/Discord Bot</h4>
+            </div>
+            <p>Query memories from team chat. No context-switching, just ask @devmemory and get instant answers.</p>
+            <div class="feature-demo">
+              <span class="highlight">@devmemory</span> why do we use Prisma?<br><br>
+              <span class="success">DevMemory:</span> Team decided on Prisma (Jan 15):<br>
+              • Type safety with TypeScript<br>
+              • Great migration system<br>
+              • Better DX than Drizzle at the time<br><br>
+              <span class="muted">Alternatives considered: Drizzle, Kysely</span><br>
+              <span class="muted">Decision by: @sarah, @mike</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon">
+                <i data-lucide="mail"></i>
+              </div>
+              <h4>Weekly Digest</h4>
+            </div>
+            <p>Automated team reports. Knowledge changes, code health, token savings, and actionable suggestions.</p>
+            <div class="feature-demo">
+              <span class="highlight">Acme Corp — Week of Dec 2-8</span><br><br>
+              <span class="success">Knowledge Changes:</span><br>
+              ├── 4 new decisions recorded<br>
+              ├── 7 solutions captured<br><br>
+              <span class="warn">Code Health:</span><br>
+              ├── src/payments/* <span class="warn">— No docs</span><br>
+              ├── src/auth/* <span class="success">— Well documented</span><br><br>
+              <span class="success">Token Savings: 127K (~$3.80)</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon cyan">
+                <i data-lucide="activity"></i>
+              </div>
+              <h4>Knowledge Health Report</h4>
+            </div>
+            <p>See coverage gaps, stale documentation, and areas that need attention. Keep your knowledge fresh.</p>
+            <div class="feature-demo">
+              <span class="cmd">$ devmemory health</span><br><br>
+              <span class="highlight">Coverage by area:</span><br>
+              src/auth/* &nbsp;&nbsp;&nbsp;&nbsp;<span class="success">████████████████</span> 95%<br>
+              src/api/* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="warn">████████████░░░░</span> 60%<br>
+              src/payments/* <span class="warn">████████░░░░░░░░</span> 40%<br>
+              src/legacy/* &nbsp;&nbsp;<span class="warn">██░░░░░░░░░░░░░░</span> 10%<br><br>
+              <span class="success">Score: 67/100</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon success">
+                <i data-lucide="panel-left"></i>
+              </div>
+              <h4>VS Code Sidebar</h4>
+            </div>
+            <p>IDE extension shows related context for your current file. Decisions, patterns, experts — right where you code.</p>
+            <div class="feature-demo">
+              <span class="highlight">DevMemory</span> — src/auth/login.ts<br><br>
+              <span class="success">Related:</span><br>
+              ├── Decision: JWT + refresh tokens<br>
+              ├── Pattern: Error handling<br>
+              ├── Solution: Race condition fix<br><br>
+              <span class="muted">Expert:</span> <span class="highlight">@sarah</span> (73%)<br>
+              <span class="muted">Last changed: 2 days ago</span><br><br>
+              <span class="cmd">[Ask about this file]</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon warm">
+                <i data-lucide="file-text"></i>
+              </div>
+              <h4>Meeting Notes → Memories</h4>
+            </div>
+            <p>Import meeting notes from Notion. AI extracts decisions automatically. No manual documentation needed.</p>
+            <div class="feature-demo">
+              <span class="cmd">$ devmemory import meeting --from notion</span><br><br>
+              Analyzing "<span class="highlight">Backend Sync - Dec 5</span>"...<br><br>
+              <span class="success">Found 3 potential decisions:</span><br>
+              ├── "Switch to Upstash for Redis" <span class="muted">— Save?</span><br>
+              ├── "Deprecate v1 API by March" <span class="muted">— Save?</span><br>
+              ├── "Alex owns payments refactor" <span class="muted">— Save?</span><br><br>
+              <span class="cmd">[Save all]</span> <span class="muted">[Review each] [Skip]</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-card-header">
+              <div class="feature-card-icon">
+                <i data-lucide="shield-alert"></i>
+              </div>
+              <h4>Dependency Intelligence</h4>
+            </div>
+            <p>CVE alerts with context. Know who added the dep, where it's used, and get migration suggestions.</p>
+            <div class="feature-demo">
+              <span class="warn">DevMemory Alert</span><br><br>
+              <span class="highlight">lodash</span> has new CVE: CVE-2025-1234<br>
+              Used in 47 files, added by <span class="highlight">@mike</span><br><br>
+              <span class="muted">Your usage:</span><br>
+              ├── debounce (23 files)<br>
+              ├── throttle (12 files)<br>
+              ├── cloneDeep (12 files)<br><br>
+              <span class="success">Suggestion:</span> debounce/throttle → es-toolkit
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Core Capabilities -->
+      <div class="core-capabilities-section reveal">
+        <div class="core-capabilities-header">
+          <h3>Core Capabilities</h3>
+          <p>Automation that understands your codebase and team conventions.</p>
+        </div>
+
+        <div class="bento-grid">
+          <!-- 1: Bootstrap (5 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon cyan">
+                <i data-lucide="download"></i>
+              </div>
+              <h4>Zero-Friction Bootstrap</h4>
+            </div>
+            <p>One command scans codebase, git history, PRs, docs. Immediate value.</p>
+            <div class="bento-demo">
+              <span class="cmd">$ npx devmemory init</span><br><br>
+              <span class="success">Scanning:</span> Codebase <span class="success">✓</span> Git (1,247 commits) <span class="success">✓</span> PRs (89) <span class="success">✓</span><br><br>
+              <span class="highlight">Generated:</span> 12 decisions, 18 patterns, 8 solutions, 9 experts
+            </div>
+          </div>
+
+          <!-- 2: Expertise (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon warm">
+                <i data-lucide="users"></i>
+              </div>
+              <h4>Expertise Mapping</h4>
+            </div>
+            <p>Git blame intelligence. Who owns what, bus factor risks.</p>
+            <div class="bento-demo">
+              <span class="highlight">src/auth/*</span> → <span class="success">@sarah</span> (73%)<br>
+              <span class="highlight">src/payments/*</span> → @alex (89%) <span class="warn">bus factor</span><br>
+              <span class="highlight">src/legacy/*</span> → <span class="warn">no active experts</span>
+            </div>
+          </div>
+
+          <!-- 3: Smart Commits (3 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon">
+                <i data-lucide="git-commit"></i>
+              </div>
+              <h4>Smart Commits</h4>
+            </div>
+            <p>Context-aware messages. Your conventions.</p>
+            <div class="bento-demo">
+              <span class="highlight">fix(auth): handle refresh race</span><br>
+              - Add mutex lock<br>
+              - Resolves #234
+            </div>
+          </div>
+
+          <!-- 4: Docs Gen (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon success">
+                <i data-lucide="book-open"></i>
+              </div>
+              <h4>Docs Generation</h4>
+            </div>
+            <p>API docs, components, architecture, runbooks.</p>
+            <div class="bento-demo">
+              <span class="cmd">$ devmemory docs generate</span><br><br>
+              API.md (47 endpoints) | COMPONENTS.md (23)<br>
+              ARCHITECTURE.md | RUNBOOK.md
+            </div>
+          </div>
+
+          <!-- 5: PR Descriptions (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon success">
+                <i data-lucide="file-diff"></i>
+              </div>
+              <h4>PR Descriptions</h4>
+            </div>
+            <p>Full context, decisions, suggested reviewers.</p>
+            <div class="bento-demo">
+              <span class="highlight">## What</span> Token rotation<br>
+              <span class="highlight">## Why</span> Decision AUTH-001<br>
+              <span class="success">Reviewer:</span> @sarah (73% ownership)
+            </div>
+          </div>
+
+          <!-- 6: Doc Drift (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon warn">
+                <i data-lucide="file-warning"></i>
+              </div>
+              <h4>Doc Drift Detection</h4>
+            </div>
+            <p>Catch when docs don't match code.</p>
+            <div class="bento-demo">
+              <span class="warn">Drift Detected</span><br>
+              README: <span class="cmd">npm run dev</span><br>
+              Actual: <span class="highlight">npm start:dev</span>
+            </div>
+          </div>
+
+          <!-- 7: Import (5 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon cyan">
+                <i data-lucide="import"></i>
+              </div>
+              <h4>Import From Anywhere</h4>
+            </div>
+            <p>Bring existing knowledge in. Framework templates included.</p>
+            <div class="bento-demo">
+              <span class="muted">Sources:</span> Notion, Markdown, GitHub, ADRs<br>
+              <span class="muted">Templates:</span> <span class="cmd">nextjs</span> <span class="cmd">rails</span> <span class="cmd">fastapi</span>
+            </div>
+          </div>
+
+          <!-- 8: Changelog (3 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon success">
+                <i data-lucide="scroll-text"></i>
+              </div>
+              <h4>Changelog</h4>
+            </div>
+            <p>Auto-generate from commits.</p>
+            <div class="bento-demo">
+              <span class="highlight"># v1.3.0</span><br>
+              <span class="success">+</span> Token rotation<br>
+              <span class="warn">!</span> dev → start:dev
+            </div>
+          </div>
+
+          <!-- 9: ADR (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon warm">
+                <i data-lucide="landmark"></i>
+              </div>
+              <h4>ADR Generation</h4>
+            </div>
+            <p>Architecture Decision Records with proper format.</p>
+            <div class="bento-demo">
+              <span class="highlight"># ADR-007: Rotating Tokens</span><br>
+              <span class="success">Status:</span> Accepted<br>
+              <span class="success">Context:</span> Security audit...
+            </div>
+          </div>
+
+          <!-- 10: Release Notes (4 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon">
+                <i data-lucide="megaphone"></i>
+              </div>
+              <h4>Release Notes</h4>
+            </div>
+            <p>User-facing notes from technical changes.</p>
+            <div class="bento-demo">
+              <span class="highlight"># What's New in v1.3</span><br>
+              <span class="success">Security:</span> Better sessions<br>
+              <span class="success">Dark Mode:</span> Finally!
+            </div>
+          </div>
+
+          <!-- 11: Storage Modes (8 cols) -->
+          <div class="bento-card">
+            <div class="bento-card-header">
+              <div class="bento-card-icon warm">
+                <i data-lucide="sliders"></i>
+              </div>
+              <h4>Storage Modes</h4>
+            </div>
+            <p>Per-type control: Manual, Suggested, or Automatic capture.</p>
+            <div class="bento-demo">
+              <span class="highlight">storage:</span> decisions=<span class="cmd">suggested</span> solutions=<span class="cmd">automatic</span> patterns=<span class="cmd">manual</span> &nbsp; <span class="highlight">exclude:</span> *.env*, node_modules/*
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MCP Integrations -->
+      <div class="integrations-section reveal">
+        <div class="integrations-header">
+          <span class="mcp-badge">
+            <i data-lucide="plug"></i>
+            MCP Native
+          </span>
+          <h3>Works With Your Tools</h3>
+          <p>Built on Model Context Protocol. One integration, every MCP-compatible AI assistant.</p>
+        </div>
+
+        <div class="integrations-grid">
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="terminal"></i>
+            </div>
+            <h4>Claude Code</h4>
+            <p>First-class support</p>
+          </div>
+
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="mouse-pointer-click"></i>
+            </div>
+            <h4>Cursor</h4>
+            <p>Full MCP integration</p>
+          </div>
+
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="wind"></i>
+            </div>
+            <h4>Windsurf</h4>
+            <p>Native support</p>
+          </div>
+
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="git-branch"></i>
+            </div>
+            <h4>GitHub</h4>
+            <p>Webhooks + Actions</p>
+          </div>
+        </div>
+
+        <div class="integrations-grid">
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="code"></i>
+            </div>
+            <h4>VS Code</h4>
+            <p>Sidebar extension</p>
+          </div>
+
+          <div class="integration-card">
+            <div class="icon">
+              <i data-lucide="message-square"></i>
+            </div>
+            <h4>Slack</h4>
+            <p>Bot integration</p>
+          </div>
+
+          <div class="integration-card coming-soon">
+            <div class="icon">
+              <i data-lucide="hash"></i>
+            </div>
+            <h4>Discord</h4>
+            <p>Team queries</p>
+          </div>
+
+          <div class="integration-card coming-soon">
+            <div class="icon">
+              <i data-lucide="gitlab"></i>
+            </div>
+            <h4>GitLab</h4>
+            <p>CI/CD hooks</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Storage Strategy Comparison -->
+      <div class="storage-comparison-section reveal">
+        <div class="storage-comparison-header">
+          <h3>Why Not Just Markdown Files?</h3>
+          <p>Comparing approaches to AI context storage.</p>
+        </div>
+
+        <div class="storage-table-wrapper">
+          <table class="storage-table">
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>Semantic Search</th>
+                <th>Git Integration</th>
+                <th>Auto-Capture</th>
+                <th>Team Sync</th>
+                <th>MCP Native</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Markdown in repo</td>
+                <td class="cross">Manual grep</td>
+                <td class="check">Version controlled</td>
+                <td class="cross">Manual only</td>
+                <td class="partial">Via git</td>
+                <td class="cross">No</td>
+              </tr>
+              <tr>
+                <td>.cursorrules / CLAUDE.md</td>
+                <td class="cross">None</td>
+                <td class="partial">Single file</td>
+                <td class="cross">Manual only</td>
+                <td class="partial">Via git</td>
+                <td class="cross">No</td>
+              </tr>
+              <tr>
+                <td>JSON/YAML configs</td>
+                <td class="cross">Key lookup</td>
+                <td class="check">Version controlled</td>
+                <td class="cross">Manual only</td>
+                <td class="partial">Via git</td>
+                <td class="cross">No</td>
+              </tr>
+              <tr>
+                <td>Notion / Confluence</td>
+                <td class="partial">Basic search</td>
+                <td class="cross">Separate system</td>
+                <td class="cross">Manual only</td>
+                <td class="check">Built-in</td>
+                <td class="cross">No</td>
+              </tr>
+              <tr>
+                <td>Generic AI Memory (Mem0)</td>
+                <td class="partial">Flat text</td>
+                <td class="cross">None</td>
+                <td class="check">Background</td>
+                <td class="partial">Cloud only</td>
+                <td class="partial">Basic</td>
+              </tr>
+              <tr class="highlight-row">
+                <td>DevMemory</td>
+                <td class="check">Structured + Vector</td>
+                <td class="check">Deep (blame, PRs)</td>
+                <td class="check">Smart modes</td>
+                <td class="check">Real-time</td>
+                <td class="check">First-class</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Us Section -->
+  <section class="why-us-section" id="why-us">
+    <div class="container">
+      <div class="why-us-header">
+        <div class="section-label reveal">Why choose us</div>
+        <h2 class="section-title reveal stagger-1">Why doclea Wins</h2>
+        <p class="section-subtitle reveal stagger-2">
+          Purpose-built for developers. Not another generic AI memory tool.
+        </p>
+      </div>
+
+      <!-- Competitive Landscape -->
+      <div class="competitive-section reveal">
+        <div class="competitive-grid">
+          <div class="competitive-table-card">
+            <h4><i data-lucide="crosshair"></i> Competitive Landscape</h4>
+            <table class="competitive-table">
+              <thead>
+                <tr>
+                  <th>Competitor</th>
+                  <th>What They Do</th>
+                  <th>Weakness</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="competitor">Mem0</td>
+                  <td>Generic AI memory</td>
+                  <td class="weakness">Not dev-focused, no git</td>
+                </tr>
+                <tr>
+                  <td class="competitor">Pieces.app</td>
+                  <td>Code snippets</td>
+                  <td class="weakness">Not AI-native, not MCP</td>
+                </tr>
+                <tr>
+                  <td class="competitor">Notion AI</td>
+                  <td>Docs + AI</td>
+                  <td class="weakness">Not for code, no git</td>
+                </tr>
+                <tr>
+                  <td class="competitor">MCP Memory</td>
+                  <td>Basic k/v store</td>
+                  <td class="weakness">Unstructured, no features</td>
+                </tr>
+                <tr>
+                  <td class="competitor">Intercom/Mendable</td>
+                  <td>Support chatbots</td>
+                  <td class="weakness">Surface-level, no code</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="advantages-card">
+            <h4><i data-lucide="trophy"></i> Our Advantages</h4>
+            <ul class="advantages-list">
+              <li>
+                <i data-lucide="check"></i>
+                <div>
+                  <strong>Dev-specific</strong>
+                  <span>Built for code, not generic text. Understands commits, PRs, patterns.</span>
+                </div>
+              </li>
+              <li>
+                <i data-lucide="check"></i>
+                <div>
+                  <strong>MCP-native</strong>
+                  <span>Works with Claude, Cursor, any MCP client. First-class integration.</span>
+                </div>
+              </li>
+              <li>
+                <i data-lucide="check"></i>
+                <div>
+                  <strong>Git-integrated</strong>
+                  <span>Commits, PRs, blame, expertise mapping. Code-aware documentation.</span>
+                </div>
+              </li>
+              <li>
+                <i data-lucide="check"></i>
+                <div>
+                  <strong>Open source core</strong>
+                  <span>Trust, transparency, community. No vendor lock-in fears.</span>
+                </div>
+              </li>
+              <li>
+                <i data-lucide="check"></i>
+                <div>
+                  <strong>Token-efficient</strong>
+                  <span>Measurable cost savings. 88% less context = real money saved.</span>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roadmap -->
+      <div class="roadmap-section reveal">
+        <div class="roadmap-header">
+          <h3>Product Roadmap</h3>
+          <p>From validation to scale. Clear phases, concrete goals.</p>
+        </div>
+
+        <div class="roadmap-grid">
+          <div class="roadmap-card active">
+            <div class="roadmap-phase">
+              <i data-lucide="hammer"></i>
+              Months 1-6
+            </div>
+            <h4>Phase 1: Build</h4>
+            <p>Foundation and validation</p>
+            <div class="roadmap-goals">
+              <h5>Goals</h5>
+              <ul>
+                <li><i data-lucide="target"></i> 500 GitHub stars</li>
+                <li><i data-lucide="target"></i> 50 daily active users</li>
+                <li><i data-lucide="target"></i> 10 design partners</li>
+              </ul>
+            </div>
+            <div class="roadmap-actions">
+              <h5>Actions</h5>
+              <ul>
+                <li>Launch MCP server (open source)</li>
+                <li>Basic CLI with add/search/inject</li>
+                <li>Claude/Cursor integrations</li>
+                <li>Community building</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="roadmap-card">
+            <div class="roadmap-phase">
+              <i data-lucide="trending-up"></i>
+              Months 6-12
+            </div>
+            <h4>Phase 2: Growth</h4>
+            <p>Cloud launch and monetization</p>
+            <div class="roadmap-goals">
+              <h5>Goals</h5>
+              <ul>
+                <li><i data-lucide="target"></i> 100 paying customers</li>
+                <li><i data-lucide="target"></i> $5,000 MRR</li>
+                <li><i data-lucide="target"></i> 3 case studies</li>
+              </ul>
+            </div>
+            <div class="roadmap-actions">
+              <h5>Actions</h5>
+              <ul>
+                <li>Launch cloud sync (Pro tier)</li>
+                <li>Add team features</li>
+                <li>GitHub webhook integration</li>
+                <li>Docs generation features</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="roadmap-card">
+            <div class="roadmap-phase">
+              <i data-lucide="rocket"></i>
+              Months 12-24
+            </div>
+            <h4>Phase 3: Scale</h4>
+            <p>Enterprise and partnerships</p>
+            <div class="roadmap-goals">
+              <h5>Goals</h5>
+              <ul>
+                <li><i data-lucide="target"></i> $50,000+ MRR</li>
+                <li><i data-lucide="target"></i> Enterprise customers</li>
+                <li><i data-lucide="target"></i> Cursor/Windsurf partnerships</li>
+              </ul>
+            </div>
+            <div class="roadmap-actions">
+              <h5>Actions</h5>
+              <ul>
+                <li>Enterprise features (SSO, audit)</li>
+                <li>Partner integrations</li>
+                <li>DevMemory Embed beta</li>
+                <li>Potential seed round</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Business Section -->
+  <section class="business-section" id="business">
+    <div class="container">
+      <div class="business-header">
+        <div class="section-label reveal">The business model</div>
+        <h2 class="section-title reveal stagger-1">Business</h2>
+        <p class="section-subtitle reveal stagger-2">
+          Open core model. Free local tier for adoption, paid cloud for teams and revenue.
+        </p>
+      </div>
+
+      <!-- Pricing Tiers -->
+      <div class="pricing-grid">
+        <div class="pricing-card reveal stagger-1">
+          <div class="pricing-tier">Free</div>
+          <div class="pricing-price">$0</div>
+          <div class="pricing-desc">Local only. Perfect for trying it out.</div>
+          <ul class="pricing-features">
+            <li><i data-lucide="check"></i> 1 project</li>
+            <li><i data-lucide="check"></i> 1,000 memories</li>
+            <li><i data-lucide="check"></i> Basic git integration</li>
+            <li><i data-lucide="check"></i> Local MCP server</li>
+            <li><i data-lucide="check"></i> SQLite + Qdrant embedded</li>
+          </ul>
+          <a href="#" class="pricing-btn secondary">Get Started</a>
+        </div>
+
+        <div class="pricing-card reveal stagger-2">
+          <div class="pricing-tier">Pro</div>
+          <div class="pricing-price">$19 <span>/dev/mo</span></div>
+          <div class="pricing-desc">For individual developers who want cloud sync.</div>
+          <ul class="pricing-features">
+            <li><i data-lucide="check"></i> Unlimited projects</li>
+            <li><i data-lucide="check"></i> Cloud sync & backup</li>
+            <li><i data-lucide="check"></i> Full git integration</li>
+            <li><i data-lucide="check"></i> Commit/PR generation</li>
+            <li><i data-lucide="check"></i> Priority support</li>
+          </ul>
+          <a href="#" class="pricing-btn secondary">Start Trial</a>
+        </div>
+
+        <div class="pricing-card featured reveal stagger-3">
+          <div class="pricing-tier">Team</div>
+          <div class="pricing-price">$49 <span>/dev/mo</span></div>
+          <div class="pricing-desc">For teams who need shared context.</div>
+          <ul class="pricing-features">
+            <li><i data-lucide="check"></i> Everything in Pro</li>
+            <li><i data-lucide="check"></i> Shared memories</li>
+            <li><i data-lucide="check"></i> Expertise mapping</li>
+            <li><i data-lucide="check"></i> Docs generation</li>
+            <li><i data-lucide="check"></i> Token analytics dashboard</li>
+          </ul>
+          <a href="#" class="pricing-btn primary">Start Trial</a>
+        </div>
+
+        <div class="pricing-card reveal stagger-4">
+          <div class="pricing-tier">Enterprise</div>
+          <div class="pricing-price">Custom</div>
+          <div class="pricing-desc">For orgs with compliance needs.</div>
+          <ul class="pricing-features">
+            <li><i data-lucide="check"></i> Everything in Team</li>
+            <li><i data-lucide="check"></i> SSO / SAML</li>
+            <li><i data-lucide="check"></i> Audit logs</li>
+            <li><i data-lucide="check"></i> Zero-knowledge encryption</li>
+            <li><i data-lucide="check"></i> On-prem option + SLA</li>
+          </ul>
+          <a href="#" class="pricing-btn secondary">Contact Sales</a>
+        </div>
+      </div>
+
+      <!-- Architecture Comparison -->
+      <div class="architecture-section reveal">
+        <div class="architecture-header">
+          <h3>Local vs Cloud Architecture</h3>
+          <p>Clean separation. No sync complexity. Free = local, Paid = cloud.</p>
+        </div>
+
+        <div class="architecture-grid">
+          <div class="arch-card local">
+            <div class="arch-badge">
+              <i data-lucide="hard-drive"></i>
+              Free (Local)
+            </div>
+            <div class="arch-title">User's Machine</div>
+            <div class="arch-stack">
+              <div class="arch-stack-item">
+                <i data-lucide="server"></i>
+                <span>MCP Server (Bun)</span>
+              </div>
+              <div class="arch-stack-item">
+                <i data-lucide="database"></i>
+                <span>SQLite (config only)</span>
+              </div>
+              <div class="arch-stack-item">
+                <i data-lucide="box"></i>
+                <span>Qdrant (embedded)</span>
+              </div>
+            </div>
+            <ul class="arch-features">
+              <li><i data-lucide="user"></i> Single user</li>
+              <li><i data-lucide="lock-open"></i> No account needed</li>
+              <li><i data-lucide="home"></i> Data stays local</li>
+              <li><i data-lucide="dollar-sign"></i> Cost: $0</li>
+            </ul>
+          </div>
+
+          <div class="arch-divider">
+            <div class="arch-vs">VS</div>
+          </div>
+
+          <div class="arch-card cloud">
+            <div class="arch-badge">
+              <i data-lucide="cloud"></i>
+              Paid (Cloud)
+            </div>
+            <div class="arch-title">doclea Cloud</div>
+            <div class="arch-stack">
+              <div class="arch-stack-item">
+                <i data-lucide="server"></i>
+                <span>API Server (Bun) + Better Auth</span>
+              </div>
+              <div class="arch-stack-item">
+                <i data-lucide="database"></i>
+                <span>PostgreSQL (Neon)</span>
+              </div>
+              <div class="arch-stack-item">
+                <i data-lucide="box"></i>
+                <span>Qdrant Cloud (namespaced)</span>
+              </div>
+            </div>
+            <ul class="arch-features">
+              <li><i data-lucide="users"></i> Multi-user, teams</li>
+              <li><i data-lucide="key"></i> Full auth + permissions</li>
+              <li><i data-lucide="refresh-cw"></i> Cloud sync + backup</li>
+              <li><i data-lucide="dollar-sign"></i> $19-49/user/month</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Business Model -->
+      <div class="business-section reveal">
+        <div class="business-header">
+          <h3>Why This Prints Money</h3>
+          <p>SaaS with near-zero marginal cost. The math works.</p>
+        </div>
+
+        <div class="business-grid">
+          <div class="business-card">
+            <div class="business-card-icon">
+              <i data-lucide="package-open"></i>
+            </div>
+            <h4>Open Core Model</h4>
+            <p>Free tier drives adoption. Core is open source, cloud features are paid. Developers try it locally, teams upgrade for sync.</p>
+          </div>
+
+          <div class="business-card">
+            <div class="business-card-icon">
+              <i data-lucide="trending-up"></i>
+            </div>
+            <div class="stat">97-99%</div>
+            <h4>Gross Margins</h4>
+            <p>Infrastructure costs ~$30-150/mo. Revenue scales to $40k+/mo at 500 users. Pure SaaS economics.</p>
+          </div>
+
+          <div class="business-card">
+            <div class="business-card-icon">
+              <i data-lucide="piggy-bank"></i>
+            </div>
+            <h4>Alternative: Token Savings</h4>
+            <p>"Pay us 10% of what we save you." $0.10 per 100K tokens saved. Aligns incentives perfectly.</p>
+          </div>
+        </div>
+
+        <div class="margins-table reveal">
+          <h4><i data-lucide="bar-chart-3"></i> Projected Unit Economics</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Users</th>
+                <th>Infrastructure</th>
+                <th>Revenue</th>
+                <th>Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="stage">Early</td>
+                <td>0-100</td>
+                <td>~$50/mo</td>
+                <td>~$1,500/mo</td>
+                <td class="margin">97%</td>
+              </tr>
+              <tr>
+                <td class="stage">Growth</td>
+                <td>100-500</td>
+                <td>~$150/mo</td>
+                <td>~$10,000/mo</td>
+                <td class="margin">98%</td>
+              </tr>
+              <tr>
+                <td class="stage">Scale</td>
+                <td>500-2000</td>
+                <td>~$400/mo</td>
+                <td>~$40,000/mo</td>
+                <td class="margin">99%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="security-section reveal">
+        <div class="security-card">
+          <div class="security-content">
+            <h3><i data-lucide="shield-check"></i> Zero-Knowledge Mode</h3>
+            <p>
+              For enterprise customers who can't have code leaving their network.
+              Encryption happens locally with customer keys. We store encrypted blobs
+              we literally cannot read. Your code, your keys, your control.
+            </p>
+            <div class="security-features">
+              <span class="security-tag"><i data-lucide="lock"></i> Client-side encryption</span>
+              <span class="security-tag"><i data-lucide="key"></i> Customer-owned keys</span>
+              <span class="security-tag"><i data-lucide="server"></i> On-prem option</span>
+              <span class="security-tag"><i data-lucide="file-check"></i> SOC2 / GDPR ready</span>
+            </div>
+          </div>
+          <div class="security-diagram">
+            <span class="highlight">Customer environment</span><br>
+            ┌─────────────────┐<br>
+            │ Code + Context &nbsp;│<br>
+            │ &nbsp; &nbsp; &nbsp; │ &nbsp; &nbsp; &nbsp; &nbsp; │<br>
+            │ &nbsp; &nbsp; &nbsp; ▼ &nbsp; &nbsp; &nbsp; &nbsp; │<br>
+            │ <span class="success">Encrypt locally</span> │───▶ Sync<br>
+            │ (your keys) &nbsp; &nbsp; │<br>
+            └─────────────────┘<br><br>
+            <span class="highlight">doclea Cloud</span><br>
+            ┌─────────────────┐<br>
+            │ Encrypted blobs │<br>
+            │ <span class="success">(we can't read)</span> │<br>
+            └─────────────────┘
+          </div>
+        </div>
+      </div>
+
+      <!-- Future Product -->
+      <div class="future-section reveal">
+        <div class="future-card">
+          <div class="future-badge">
+            <i data-lucide="rocket"></i>
+            Future Product
+          </div>
+          <div class="future-content">
+            <div>
+              <h3>DevMemory Embed</h3>
+              <p>
+                Most customer-facing chatbots know <strong>what</strong> your product does.
+                None know <strong>why</strong> it works that way. DevMemory Embed brings
+                your internal context to customer-facing AI — technical accuracy that
+                actually understands your architecture decisions.
+              </p>
+              <div class="future-segments">
+                <div class="future-segment">
+                  <h5>Developer Tools</h5>
+                  <p>APIs, SDKs where accuracy matters</p>
+                </div>
+                <div class="future-segment">
+                  <h5>B2B SaaS</h5>
+                  <p>Complex products, stale docs</p>
+                </div>
+                <div class="future-segment">
+                  <h5>Open Source</h5>
+                  <p>Community needs deep answers</p>
+                </div>
+                <div class="future-segment">
+                  <h5>Internal Tools</h5>
+                  <p>No docs team, code is truth</p>
+                </div>
+              </div>
+            </div>
+            <div class="future-demo">
+              <div class="future-demo-header">
+                <i data-lucide="message-square"></i>
+                Support Chat (DevMemory-powered)
+              </div>
+              <div class="future-demo-body">
+                <div class="future-demo-msg user">
+                  "Why doesn't the webhook retry on 500 errors?"
+                </div>
+                <div class="future-demo-msg bot">
+                  <strong>By design.</strong> 500s indicate server issues on your end,
+                  so retrying would hammer a broken endpoint. Use <code>503</code>
+                  for transient errors — those retry with exponential backoff.
+                  See <code>docs/webhooks.md</code> for retry logic.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="future-pricing">
+            <h4>Projected Pricing</h4>
+            <div class="future-pricing-tiers">
+              <div class="future-pricing-tier">
+                <strong>$99/mo</strong>
+                <span>1,000 conversations</span>
+              </div>
+              <div class="future-pricing-tier">
+                <strong>$299/mo</strong>
+                <span>10,000 conversations</span>
+              </div>
+              <div class="future-pricing-tier">
+                <strong>Custom</strong>
+                <span>Unlimited + SLA</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -2384,13 +5035,26 @@
     const sections = document.querySelectorAll('section[id]');
     const navLinks = document.querySelectorAll('.nav-link');
 
-    window.addEventListener('scroll', () => {
-      let current = '';
+    function updateActiveNav() {
+      let current = 'problem'; // Default to problem when at top
+
+      // Map sections without nav links to their parent nav section
+      const sectionToNav = {
+        'top': 'problem',
+        'problem': 'problem',
+        'calculator': 'problem',
+        'objections': 'problem',
+        'solution': 'problem',
+        'features': 'features',
+        'why-us': 'why-us',
+        'business': 'business'
+      };
 
       sections.forEach(section => {
         const sectionTop = section.offsetTop - 200;
         if (window.pageYOffset >= sectionTop) {
-          current = section.getAttribute('id');
+          const sectionId = section.getAttribute('id');
+          current = sectionToNav[sectionId] || sectionId;
         }
       });
 
@@ -2400,7 +5064,10 @@
           link.classList.add('active');
         }
       });
-    });
+    }
+
+    window.addEventListener('scroll', updateActiveNav);
+    updateActiveNav(); // Set initial state on page load
 
     // ============================================
     // INITIALIZE LUCIDE ICONS
