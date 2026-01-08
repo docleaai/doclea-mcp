@@ -9,7 +9,7 @@ import {
 import { join, relative } from "node:path";
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import { storeMemory } from "@/tools/memory";
 import type { MemoryType } from "@/types";
@@ -70,7 +70,7 @@ export interface InitResult {
 
 export async function initProject(
   input: InitInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<InitResult> {
@@ -112,7 +112,7 @@ export async function initProject(
   const stackResult = await detectProjectStack(
     projectPath,
     input.dryRun,
-    db,
+    storage,
     vectors,
     embeddings,
   );
@@ -126,7 +126,7 @@ export async function initProject(
       projectPath,
       scanCommits,
       input.dryRun,
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -143,7 +143,7 @@ export async function initProject(
     const docsResult = await scanDocumentation(
       projectPath,
       input.dryRun,
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -157,7 +157,7 @@ export async function initProject(
     const codeResult = await scanCodePatterns(
       projectPath,
       input.dryRun,
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -183,7 +183,7 @@ interface StackDetectionResult {
 async function detectProjectStack(
   projectPath: string,
   dryRun: boolean,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<StackDetectionResult> {
@@ -361,7 +361,7 @@ async function detectProjectStack(
         relatedFiles: ["package.json"],
         experts: [],
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -383,7 +383,7 @@ async function scanGitHistory(
   projectPath: string,
   maxCommits: number,
   dryRun: boolean,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<GitScanResult> {
@@ -456,7 +456,7 @@ async function scanGitHistory(
               tags: buildTags(message, "decision", isBreaking),
               relatedFiles: relatedFiles.slice(0, 10),
             },
-            db,
+            storage,
             vectors,
             embeddings,
           );
@@ -476,7 +476,7 @@ async function scanGitHistory(
               tags: buildTags(message, "solution", isBreaking),
               relatedFiles: relatedFiles.slice(0, 10),
             },
-            db,
+            storage,
             vectors,
             embeddings,
           );
@@ -629,7 +629,7 @@ function extractSummary(commitMessage: string): string | undefined {
 async function scanDocumentation(
   projectPath: string,
   dryRun: boolean,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<{ notes: number; files: number }> {
@@ -672,7 +672,7 @@ async function scanDocumentation(
             relatedFiles: [relPath],
             experts: [],
           },
-          db,
+          storage,
           vectors,
           embeddings,
         );
@@ -706,7 +706,7 @@ function buildDocTags(filePath: string): string[] {
 async function scanCodePatterns(
   projectPath: string,
   dryRun: boolean,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<{ patterns: number; files: number }> {
@@ -788,7 +788,7 @@ async function scanCodePatterns(
                 relatedFiles: [configFile],
                 experts: [],
               },
-              db,
+              storage,
               vectors,
               embeddings,
             );

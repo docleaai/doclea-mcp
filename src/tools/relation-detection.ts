@@ -12,7 +12,7 @@ import { z } from "zod";
 import type { Database } from "bun:sqlite";
 import { MemoryRelationStorage } from "@/database/memory-relations";
 import { RelationSuggestionStorage } from "@/database/relation-suggestions";
-import { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import { createRelationDetector, type DetectionResult } from "@/relations";
 import type { VectorStore } from "@/vectors/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
@@ -45,19 +45,19 @@ export type DetectRelationsInput = z.infer<typeof DetectRelationsInputSchema>;
 
 export async function detectRelations(
 	input: DetectRelationsInput,
-	db: Database,
-	sqliteDb: SQLiteDatabase,
+	storage: IStorageBackend,
 	vectors?: VectorStore,
 	embeddings?: EmbeddingClient,
 ): Promise<{
 	result: DetectionResult | null;
 	message: string;
 }> {
+	const db = storage.getDatabase();
 	const relationStorage = new MemoryRelationStorage(db);
 	const suggestionStorage = new RelationSuggestionStorage(db, relationStorage);
 
 	// Get the memory
-	const memory = sqliteDb.getMemory(input.memoryId);
+	const memory = storage.getMemory(input.memoryId);
 	if (!memory) {
 		return {
 			result: null,
@@ -67,7 +67,7 @@ export async function detectRelations(
 
 	// Create detector with optional custom config
 	const detector = createRelationDetector(
-		sqliteDb,
+		storage,
 		relationStorage,
 		suggestionStorage,
 		vectors,

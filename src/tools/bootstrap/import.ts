@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import { storeMemory } from "@/tools/memory";
 import type { MemoryType } from "@/types";
@@ -29,7 +29,7 @@ export interface ImportResult {
 
 export async function importContent(
   input: ImportInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<ImportResult> {
@@ -73,7 +73,7 @@ export async function importContent(
                 relatedFiles: [relPath],
                 experts: [],
               },
-              db,
+              storage,
               vectors,
               embeddings,
             );
@@ -98,7 +98,7 @@ export async function importContent(
                 relatedFiles: [relPath],
                 experts: [],
               },
-              db,
+              storage,
               vectors,
               embeddings,
             );

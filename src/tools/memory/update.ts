@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import { type Memory, MemoryTypeSchema } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
@@ -27,11 +27,11 @@ export type UpdateMemoryInput = z.infer<typeof UpdateMemoryInputSchema>;
 
 export async function updateMemory(
   input: UpdateMemoryInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<Memory | null> {
-  const existing = db.getMemory(input.id);
+  const existing = storage.getMemory(input.id);
   if (!existing) {
     return null;
   }
@@ -77,5 +77,5 @@ export async function updateMemory(
 
   // Update SQLite
   const { id, ...updates } = input;
-  return db.updateMemory(id, updates);
+  return storage.updateMemory(id, updates);
 }

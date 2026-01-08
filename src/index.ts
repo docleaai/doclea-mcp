@@ -4,7 +4,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { createVectorStore } from "@/vectors";
 import { getDbPath, getProjectPath, loadConfig } from "./config";
-import { SQLiteDatabase } from "./database/sqlite";
+import { createStorageBackend } from "./storage/factory";
+import type { IStorageBackend } from "./storage/interface";
 import {
   CachedEmbeddingClient,
   createEmbeddingClient,
@@ -22,7 +23,29 @@ import {
   searchMemory,
   storeMemory,
   updateMemory,
+  StoreMemoryInputSchema,
+  type StoreMemoryResult,
 } from "./tools/memory";
+import {
+  listPendingMemories,
+  approvePendingMemory,
+  rejectPendingMemory,
+  bulkApprovePendingMemories,
+  bulkRejectPendingMemories,
+  getStorageMode,
+  setStorageMode,
+  ListPendingInputSchema,
+  ApprovePendingInputSchema,
+  RejectPendingInputSchema,
+  BulkApprovePendingInputSchema,
+  BulkRejectPendingInputSchema,
+} from "./tools/memory/pending";
+import {
+  exportData,
+  importData,
+  ExportInputSchema,
+  ImportInputSchema,
+} from "./tools/backup";
 import {
   scanCode,
   stopCodeWatch,
@@ -93,17 +116,23 @@ import {
 // Initialize services
 const config = loadConfig();
 const projectPath = getProjectPath();
-const db = new SQLiteDatabase(getDbPath(config));
+
+// Create storage backend from config
+const storage: IStorageBackend = createStorageBackend(config.storage, projectPath);
+await storage.initialize();
+
 const vectors = createVectorStore(config.vector, projectPath);
 
 // Create embedding client with caching layer
 const baseEmbeddings = createEmbeddingClient(config.embedding);
 const modelName =
   config.embedding.provider === "local" ? "local-tei" : config.embedding.model;
-const embeddings = new CachedEmbeddingClient(baseEmbeddings, db, modelName);
+const embeddings = new CachedEmbeddingClient(baseEmbeddings, storage, modelName);
 
 // Initialize vector store
 await vectors.initialize();
+
+console.log(`[doclea] Storage: ${storage.getBackendType()}, Mode: ${storage.getStorageMode()}`);
 
 // Create MCP server using new API
 const server = new McpServer({
@@ -152,7 +181,7 @@ server.registerTool(
     },
   },
   async (args) => {
-    const memory = await storeMemory(
+    const result = await storeMemory(
       {
         ...args,
         importance: args.importance ?? 0.5,
@@ -160,13 +189,28 @@ server.registerTool(
         relatedFiles: args.relatedFiles ?? [],
         experts: args.experts ?? [],
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
-    return {
-      content: [{ type: "text", text: JSON.stringify(memory, null, 2) }],
-    };
+
+    // Handle both committed and pending results
+    if (result.status === "committed") {
+      return {
+        content: [{ type: "text", text: JSON.stringify(result.memory, null, 2) }],
+      };
+    } else {
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            status: "pending",
+            pendingId: result.pendingId,
+            message: result.message,
+          }, null, 2),
+        }],
+      };
+    }
   },
 );
 
@@ -200,7 +244,7 @@ server.registerTool(
   async (args) => {
     const results = await searchMemory(
       { ...args, limit: args.limit ?? 10 },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -220,7 +264,7 @@ server.registerTool(
     },
   },
   async (args) => {
-    const memory = getMemory(args, db);
+    const memory = getMemory(args, storage);
     if (!memory) {
       return {
         content: [{ type: "text", text: "Memory not found" }],
@@ -250,7 +294,7 @@ server.registerTool(
     },
   },
   async (args) => {
-    const memory = await updateMemory(args, db, vectors, embeddings);
+    const memory = await updateMemory(args, storage, vectors, embeddings);
     if (!memory) {
       return {
         content: [{ type: "text", text: "Memory not found" }],
@@ -273,7 +317,7 @@ server.registerTool(
     },
   },
   async (args) => {
-    const deleted = await deleteMemory(args, db, vectors);
+    const deleted = await deleteMemory(args, storage, vectors);
     return {
       content: [
         {
@@ -301,7 +345,7 @@ server.registerTool(
     },
   },
   async (args) => {
-    const result = await generateCommitMessage(args, db, vectors, embeddings);
+    const result = await generateCommitMessage(args, storage, vectors, embeddings);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };
@@ -326,7 +370,7 @@ server.registerTool(
         ...args,
         base: args.base ?? "main",
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -488,7 +532,7 @@ server.registerTool(
         scanCommits: args.scanCommits ?? 500,
         dryRun: args.dryRun ?? false,
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -522,7 +566,7 @@ server.registerTool(
         recursive: args.recursive ?? true,
         dryRun: args.dryRun ?? false,
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -575,7 +619,7 @@ server.registerTool(
         watch: args.watch ?? false,
         extractSummaries: args.extractSummaries ?? true,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
       vectors,
       embeddings,
     );
@@ -629,7 +673,7 @@ server.registerTool(
         name: args.name,
         filePath: args.filePath,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -662,7 +706,7 @@ server.registerTool(
         nodeId: args.nodeId,
         summary: args.summary,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     if (!result.success) {
       return {
@@ -710,7 +754,7 @@ server.registerTool(
         depth: args.depth ?? 2,
         direction: args.direction ?? "both",
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -744,7 +788,7 @@ server.registerTool(
         interfaceName: args.interfaceName,
         interfaceId: args.interfaceId,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -787,7 +831,7 @@ server.registerTool(
         depth: args.depth ?? 3,
         direction: args.direction ?? "imports",
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -826,7 +870,7 @@ server.registerTool(
         functionName: args.functionName,
         depth: args.depth ?? 3,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     const breakingChangesText =
       result.result.breakingChanges.length > 0
@@ -891,7 +935,7 @@ server.registerTool(
         forceRegenerate: args.forceRegenerate ?? false,
         preferAiForExported: args.preferAiForExported ?? true,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -943,7 +987,7 @@ server.registerTool(
         includeCode: args.includeCode ?? true,
         confidenceThreshold: args.confidenceThreshold ?? 0.6,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -980,7 +1024,7 @@ server.registerTool(
       {
         summaries: args.summaries,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [{ type: "text", text: result.message }],
@@ -1032,7 +1076,7 @@ server.registerTool(
         filters: args.filters,
         template: args.template ?? "default",
       },
-      db,
+      storage,
       vectors,
       embeddings,
     );
@@ -1087,7 +1131,7 @@ server.registerTool(
         weight: args.weight ?? 1.0,
         metadata: args.metadata,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -1140,7 +1184,7 @@ server.registerTool(
         relationTypes: args.relationTypes,
         direction: args.direction ?? "both",
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -1176,7 +1220,7 @@ server.registerTool(
         targetId: args.targetId,
         maxDepth: args.maxDepth ?? 5,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [
@@ -1207,7 +1251,7 @@ server.registerTool(
       {
         relationId: args.relationId,
       },
-      db.getDatabase(),
+      storage.getDatabase(),
     );
     return {
       content: [{ type: "text", text: result.message }],
@@ -1453,8 +1497,7 @@ server.registerTool(
 				semanticThreshold: args.semanticThreshold,
 				autoApproveThreshold: args.autoApproveThreshold,
 			},
-			db.getDatabase(),
-			db,
+			storage,
 			vectors,
 			embeddings,
 		);
@@ -1506,7 +1549,7 @@ server.registerTool(
 				limit: args.limit ?? 20,
 				offset: args.offset ?? 0,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1535,7 +1578,7 @@ server.registerTool(
 				suggestionId: args.suggestionId,
 				action: args.action,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [{ type: "text", text: result.message }],
@@ -1563,7 +1606,7 @@ server.registerTool(
 				suggestionIds: args.suggestionIds,
 				action: args.action,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1616,8 +1659,7 @@ server.registerTool(
 				relationTypes: args.relationTypes,
 				minConfidence: args.minConfidence ?? 0.6,
 			},
-			db.getDatabase(),
-			db,
+			storage,
 		);
 		return {
 			content: [
@@ -1649,7 +1691,7 @@ server.registerTool(
 				memoryId: args.memoryId,
 				relationType: args.relationType,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1681,7 +1723,7 @@ server.registerTool(
 				codeNodeId: args.codeNodeId,
 				relationType: args.relationType,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1726,7 +1768,7 @@ server.registerTool(
 				limit: args.limit ?? 20,
 				offset: args.offset ?? 0,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1755,7 +1797,7 @@ server.registerTool(
 				suggestionId: args.suggestionId,
 				action: args.action,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [{ type: "text", text: result.message }],
@@ -1783,7 +1825,7 @@ server.registerTool(
 				suggestionIds: args.suggestionIds,
 				action: args.action,
 			},
-			db.getDatabase(),
+			storage.getDatabase(),
 		);
 		return {
 			content: [
@@ -1804,6 +1846,227 @@ server.registerTool(
 			],
 		};
 	},
+);
+
+// ============================================
+// Pending Memory Tools (for suggested/manual modes)
+// ============================================
+
+server.registerTool(
+  "doclea_list_pending",
+  {
+    title: "List Pending Memories",
+    description: "List all pending memories waiting for approval (only in suggested/manual mode)",
+    inputSchema: {},
+  },
+  async () => {
+    const pending = listPendingMemories(storage);
+    const mode = getStorageMode(storage);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          mode,
+          count: pending.length,
+          pending: pending.map((p) => ({
+            id: p.id,
+            title: p.memoryData.title,
+            type: p.memoryData.type,
+            suggestedAt: p.suggestedAt,
+            source: p.source,
+            reason: p.reason,
+          })),
+        }, null, 2),
+      }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_approve_pending",
+  {
+    title: "Approve Pending Memory",
+    description: "Approve a pending memory, committing it to storage and vector database",
+    inputSchema: {
+      pendingId: z.string().describe("ID of the pending memory to approve"),
+    },
+  },
+  async (args) => {
+    const result = await approvePendingMemory(
+      args.pendingId,
+      storage,
+      vectors,
+      embeddings,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_reject_pending",
+  {
+    title: "Reject Pending Memory",
+    description: "Reject a pending memory, discarding it",
+    inputSchema: {
+      pendingId: z.string().describe("ID of the pending memory to reject"),
+    },
+  },
+  async (args) => {
+    const success = rejectPendingMemory(args.pendingId, storage);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ success, pendingId: args.pendingId }, null, 2),
+      }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_bulk_approve_pending",
+  {
+    title: "Bulk Approve Pending Memories",
+    description: "Approve multiple pending memories at once",
+    inputSchema: {
+      pendingIds: z.array(z.string()).describe("IDs of pending memories to approve"),
+    },
+  },
+  async (args) => {
+    const result = await bulkApprovePendingMemories(
+      args.pendingIds,
+      storage,
+      vectors,
+      embeddings,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_bulk_reject_pending",
+  {
+    title: "Bulk Reject Pending Memories",
+    description: "Reject multiple pending memories at once",
+    inputSchema: {
+      pendingIds: z.array(z.string()).describe("IDs of pending memories to reject"),
+    },
+  },
+  async (args) => {
+    const result = bulkRejectPendingMemories(args.pendingIds, storage);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_get_storage_mode",
+  {
+    title: "Get Storage Mode",
+    description: "Get the current storage mode (automatic, suggested, or manual)",
+    inputSchema: {},
+  },
+  async () => {
+    const mode = getStorageMode(storage);
+    const backend = storage.getBackendType();
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ mode, backend }, null, 2),
+      }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_set_storage_mode",
+  {
+    title: "Set Storage Mode",
+    description: "Change the storage mode at runtime",
+    inputSchema: {
+      mode: z.enum(["manual", "suggested", "automatic"]).describe("New storage mode"),
+    },
+  },
+  async (args) => {
+    setStorageMode(storage, args.mode);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          newMode: args.mode,
+          message: `Storage mode changed to ${args.mode}`,
+        }, null, 2),
+      }],
+    };
+  },
+);
+
+// ============================================
+// Export/Import Tools
+// ============================================
+
+server.registerTool(
+  "doclea_export",
+  {
+    title: "Export Data",
+    description: "Export all memories, documents, and relations to a JSON file",
+    inputSchema: {
+      outputPath: z.string().describe("Path to write the export file"),
+      includeRelations: z.boolean().optional().describe("Include memory and cross-layer relations (default: true)"),
+      includePending: z.boolean().optional().describe("Include pending memories (default: true)"),
+    },
+  },
+  async (args) => {
+    const result = exportData(
+      {
+        outputPath: args.outputPath,
+        includeRelations: args.includeRelations ?? true,
+        includePending: args.includePending ?? true,
+      },
+      storage,
+      config.embedding,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_import",
+  {
+    title: "Import Data",
+    description: "Import memories, documents, and relations from a JSON export file",
+    inputSchema: {
+      inputPath: z.string().describe("Path to the export file to import"),
+      conflictStrategy: z.enum(["skip", "overwrite", "error"]).optional().describe("How to handle conflicts (default: skip)"),
+      reembed: z.boolean().optional().describe("Re-generate embeddings (default: false)"),
+      importRelations: z.boolean().optional().describe("Import relations (default: true)"),
+      importPending: z.boolean().optional().describe("Import pending memories (default: true)"),
+    },
+  },
+  async (args) => {
+    const result = await importData(
+      {
+        inputPath: args.inputPath,
+        conflictStrategy: args.conflictStrategy ?? "skip",
+        reembed: args.reembed ?? false,
+        importRelations: args.importRelations ?? true,
+        importPending: args.importPending ?? true,
+      },
+      storage,
+      args.reembed ? vectors : undefined,
+      args.reembed ? embeddings : undefined,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
 );
 
 // Start server

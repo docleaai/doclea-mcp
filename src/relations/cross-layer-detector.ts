@@ -8,7 +8,7 @@
  */
 
 import type { Memory } from "@/types";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { CodeGraphStorage, CodeNode } from "@/database/code-graph";
 import type {
 	CrossLayerRelationStorage,
@@ -84,7 +84,7 @@ export class CrossLayerDetector {
 	private config: CrossLayerDetectionConfig;
 
 	constructor(
-		private memoryStorage: SQLiteDatabase,
+		private storage: IStorageBackend,
 		private codeGraph: CodeGraphStorage,
 		private relationStorage: CrossLayerRelationStorage,
 		private suggestionStorage: CrossLayerSuggestionStorage,
@@ -258,7 +258,7 @@ export class CrossLayerDetector {
 		const candidates: CrossLayerCandidate[] = [];
 
 		// Find memories that reference this code's file
-		const relatedMemories = this.memoryStorage.findByRelatedFiles(
+		const relatedMemories = this.storage.findByRelatedFiles(
 			[codeNode.filePath],
 			undefined, // No excludeId needed for code nodes
 		);
@@ -312,7 +312,7 @@ export class CrossLayerDetector {
 		const candidates: CrossLayerCandidate[] = [];
 
 		// Get pattern memories
-		const patterns = this.memoryStorage.listMemories({
+		const patterns = this.storage.listMemories({
 			type: "pattern",
 			limit: 100,
 		});
@@ -490,14 +490,14 @@ export class CrossLayerDetector {
  * Helper function to create a cross-layer detector
  */
 export function createCrossLayerDetector(
-	memoryStorage: SQLiteDatabase,
+	storage: IStorageBackend,
 	codeGraph: CodeGraphStorage,
 	relationStorage: CrossLayerRelationStorage,
 	suggestionStorage: CrossLayerSuggestionStorage,
 	config?: Partial<CrossLayerDetectionConfig>,
 ): CrossLayerDetector {
 	return new CrossLayerDetector(
-		memoryStorage,
+		storage,
 		codeGraph,
 		relationStorage,
 		suggestionStorage,

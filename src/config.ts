@@ -84,23 +84,28 @@ function migrateConfig(rawConfig: Record<string, unknown>): Record<string, unkno
 
   // If storage only has dbPath (old format), add backend and mode
   if (!("backend" in storage) && !("mode" in storage)) {
+    const dbPath = typeof storage.dbPath === "string" ? storage.dbPath : DEFAULT_CONFIG.storage.dbPath;
     return {
       ...rawConfig,
       storage: {
         backend: "sqlite",
-        dbPath: storage.dbPath ?? DEFAULT_CONFIG.storage.dbPath,
+        dbPath,
         mode: "automatic",
       } satisfies StorageConfig,
     };
   }
 
   // Already new format, just ensure defaults
+  const dbPath = typeof storage.dbPath === "string" ? storage.dbPath : DEFAULT_CONFIG.storage.dbPath;
+  const backend = storage.backend === "memory" ? "memory" : "sqlite";
+  const mode = storage.mode === "manual" ? "manual" : storage.mode === "suggested" ? "suggested" : "automatic";
+
   return {
     ...rawConfig,
     storage: {
-      backend: storage.backend ?? "sqlite",
-      dbPath: storage.dbPath ?? DEFAULT_CONFIG.storage.dbPath,
-      mode: storage.mode ?? "automatic",
+      backend,
+      dbPath,
+      mode,
     },
   };
 }

@@ -12,7 +12,7 @@
  */
 
 import type { Memory } from "@/types";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { MemoryRelationStorage } from "@/database/memory-relations";
 import type { RelationSuggestionStorage } from "@/database/relation-suggestions";
 import type { VectorStore, VectorSearchResult } from "@/vectors/interface";
@@ -41,7 +41,7 @@ export class RelationDetector {
 	private config: DetectionConfig;
 
 	constructor(
-		private memoryStorage: SQLiteDatabase,
+		private storage: IStorageBackend,
 		private relationStorage: MemoryRelationStorage,
 		private suggestionStorage: RelationSuggestionStorage,
 		private vectors?: VectorStore,
@@ -151,7 +151,7 @@ export class RelationDetector {
 		const allKeywords = [...new Set([...keywords, ...(memory.tags || [])])];
 
 		// Search for memories with matching tags
-		const matches = this.memoryStorage.searchByTags(allKeywords, memory.id);
+		const matches = this.storage.searchByTags(allKeywords, memory.id);
 
 		// Calculate overlap scores
 		const candidates: RelationCandidate[] = [];
@@ -182,7 +182,7 @@ export class RelationDetector {
 		}
 
 		// Find memories with overlapping files
-		const matches = this.memoryStorage.findByRelatedFiles(sourceFiles, memory.id);
+		const matches = this.storage.findByRelatedFiles(sourceFiles, memory.id);
 
 		// Calculate overlap scores
 		const candidates: RelationCandidate[] = [];
@@ -215,7 +215,7 @@ export class RelationDetector {
 		const endTime = memory.createdAt + windowMs;
 
 		// Find memories within the time window
-		const matches = this.memoryStorage.findByTimeRange(startTime, endTime, memory.id);
+		const matches = this.storage.findByTimeRange(startTime, endTime, memory.id);
 
 		// Calculate temporal scores
 		const candidates: RelationCandidate[] = [];
@@ -297,7 +297,7 @@ export class RelationDetector {
 		candidates: RelationCandidate[],
 	): Promise<RelationCandidate[]> {
 		const targetIds = candidates.map((c) => c.targetId);
-		const targetMemories = this.memoryStorage.getMemoriesByIds(targetIds);
+		const targetMemories = this.storage.getMemoriesByIds(targetIds);
 		const targetMap = new Map(targetMemories.map((m) => [m.id, m]));
 
 		return candidates.map((candidate) => {
@@ -377,7 +377,7 @@ export class RelationDetector {
  * Create a relation detector with optional configuration
  */
 export function createRelationDetector(
-	memoryStorage: SQLiteDatabase,
+	storage: IStorageBackend,
 	relationStorage: MemoryRelationStorage,
 	suggestionStorage: RelationSuggestionStorage,
 	vectors?: VectorStore,
@@ -385,7 +385,7 @@ export function createRelationDetector(
 	config?: Partial<DetectionConfig>,
 ): RelationDetector {
 	return new RelationDetector(
-		memoryStorage,
+		storage,
 		relationStorage,
 		suggestionStorage,
 		vectors,

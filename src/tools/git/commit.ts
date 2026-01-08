@@ -1,6 +1,6 @@
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import type { Memory } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
@@ -36,7 +36,7 @@ export interface CommitMessageResult {
 
 export async function generateCommitMessage(
   input: CommitMessageInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<CommitMessageResult> {
@@ -59,7 +59,7 @@ export async function generateCommitMessage(
   const relatedMemories = await findRelatedMemories(
     analysis,
     diff,
-    db,
+    storage,
     vectors,
     embeddings,
   );
@@ -103,7 +103,7 @@ interface RelatedMemory {
 async function findRelatedMemories(
   analysis: DiffAnalysis,
   diff: string,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<RelatedMemory[]> {
@@ -120,7 +120,7 @@ async function findRelatedMemories(
 
     for (const result of fileSearchResults) {
       if (!seenIds.has(result.memoryId)) {
-        const memory = db.getMemory(result.memoryId);
+        const memory = storage.getMemory(result.memoryId);
         if (memory) {
           results.push({ memory, score: result.score });
           seenIds.add(result.memoryId);
@@ -137,7 +137,7 @@ async function findRelatedMemories(
 
     for (const result of changesResults) {
       if (!seenIds.has(result.memoryId) && result.score > 0.5) {
-        const memory = db.getMemory(result.memoryId);
+        const memory = storage.getMemory(result.memoryId);
         if (memory) {
           results.push({ memory, score: result.score });
           seenIds.add(result.memoryId);
@@ -157,7 +157,7 @@ async function findRelatedMemories(
 
   for (const result of decisionResults) {
     if (!seenIds.has(result.memoryId) && result.score > 0.6) {
-      const memory = db.getMemory(result.memoryId);
+      const memory = storage.getMemory(result.memoryId);
       if (memory) {
         results.push({ memory, score: result.score });
         seenIds.add(result.memoryId);

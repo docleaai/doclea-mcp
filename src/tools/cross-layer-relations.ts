@@ -19,7 +19,7 @@ import {
 	CrossLayerSuggestionStorage,
 	type CrossLayerSuggestion,
 } from "@/database/cross-layer-suggestions";
-import { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import {
 	CrossLayerDetector,
 	type CrossLayerDetectionResult,
@@ -65,12 +65,12 @@ export type SuggestRelationsInput = z.infer<typeof SuggestRelationsInputSchema>;
 
 export async function suggestRelations(
 	input: SuggestRelationsInput,
-	db: Database,
-	sqliteDb: SQLiteDatabase,
+	storage: IStorageBackend,
 ): Promise<{
 	result: CrossLayerDetectionResult | null;
 	message: string;
 }> {
+	const db = storage.getDatabase();
 	const codeGraph = new CodeGraphStorage(db);
 	const relationStorage = new CrossLayerRelationStorage(db);
 	const suggestionStorage = new CrossLayerSuggestionStorage(
@@ -79,7 +79,7 @@ export async function suggestRelations(
 	);
 
 	const detector = new CrossLayerDetector(
-		sqliteDb,
+		storage,
 		codeGraph,
 		relationStorage,
 		suggestionStorage,
@@ -90,7 +90,7 @@ export async function suggestRelations(
 
 	if (input.entityType === "memory") {
 		// Get the memory
-		const memory = sqliteDb.getMemory(input.entityId);
+		const memory = storage.getMemory(input.entityId);
 		if (!memory) {
 			return {
 				result: null,

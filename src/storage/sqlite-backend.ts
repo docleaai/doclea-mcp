@@ -16,8 +16,10 @@ import type {
   StorageMode,
   DeleteResult,
   PendingMemory,
+  CreatePendingMemoryInput,
   ListMemoriesOptions,
 } from "./types";
+import { randomUUID } from "crypto";
 
 /**
  * SQLite storage backend
@@ -416,20 +418,30 @@ export class SqliteStorageBackend implements IStorageBackend {
   // Pending Memory Operations
   // ============================================
 
-  createPendingMemory(pending: PendingMemory): PendingMemory {
+  createPendingMemory(input: CreatePendingMemoryInput): PendingMemory {
+    const id = `pnd_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const suggestedAt = Math.floor(Date.now() / 1000);
+
     const stmt = this.db.prepare(`
       INSERT INTO pending_memories (id, memory_data, qdrant_id, suggested_at, source, reason)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      pending.id,
-      JSON.stringify(pending.memoryData),
-      pending.memoryData.qdrantId,
-      pending.suggestedAt,
-      pending.source,
-      pending.reason,
+      id,
+      JSON.stringify(input.memoryData),
+      input.memoryData.qdrantId,
+      suggestedAt,
+      input.source,
+      input.reason,
     );
-    return pending;
+
+    return {
+      id,
+      memoryData: input.memoryData,
+      suggestedAt,
+      source: input.source,
+      reason: input.reason,
+    };
   }
 
   getPendingMemory(id: string): PendingMemory | null {

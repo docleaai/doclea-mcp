@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { Memory } from "@/types";
 
 export const GetMemoryInputSchema = z.object({
@@ -10,7 +10,7 @@ export type GetMemoryInput = z.infer<typeof GetMemoryInputSchema>;
 
 export function getMemory(
   input: GetMemoryInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
 ): Memory | null {
-  return db.getMemory(input.id);
+  return storage.getMemory(input.id);
 }

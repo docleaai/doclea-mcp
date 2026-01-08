@@ -13,6 +13,7 @@ import type {
   StorageMode,
   DeleteResult,
   PendingMemory,
+  CreatePendingMemoryInput,
   ListMemoriesOptions,
 } from "./types";
 
@@ -156,8 +157,9 @@ export interface IStorageBackend {
 
   /**
    * Create a pending memory (not yet committed)
+   * Automatically generates id and suggestedAt timestamp
    */
-  createPendingMemory(pending: PendingMemory): PendingMemory;
+  createPendingMemory(input: CreatePendingMemoryInput): PendingMemory;
 
   /**
    * Get a pending memory by ID

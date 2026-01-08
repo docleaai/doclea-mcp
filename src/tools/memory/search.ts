@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import { MemoryTypeSchema, type SearchResult } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
@@ -30,7 +30,7 @@ export type SearchMemoryInput = z.infer<typeof SearchMemoryInputSchema>;
 
 export async function searchMemory(
   input: SearchMemoryInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<SearchResult[]> {
@@ -55,7 +55,7 @@ export async function searchMemory(
 
   // Fetch full memories from SQLite
   const memoryIds = vectorResults.map((r) => r.memoryId);
-  const memories = db.getMemoriesByIds(memoryIds);
+  const memories = storage.getMemoriesByIds(memoryIds);
 
   // Map scores to memories
   const scoreMap = new Map(vectorResults.map((r) => [r.memoryId, r.score]));

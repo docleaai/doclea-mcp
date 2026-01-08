@@ -1,4 +1,4 @@
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "./provider";
 
 /**
@@ -13,12 +13,12 @@ async function hashContent(content: string): Promise<string> {
 }
 
 /**
- * Wraps an embedding client with SQLite-based caching
+ * Wraps an embedding client with storage-based caching
  */
 export class CachedEmbeddingClient implements EmbeddingClient {
   constructor(
     private client: EmbeddingClient,
-    private db: SQLiteDatabase,
+    private storage: IStorageBackend,
     private model: string,
   ) {}
 
@@ -26,7 +26,7 @@ export class CachedEmbeddingClient implements EmbeddingClient {
     const contentHash = await hashContent(text);
 
     // Check cache first
-    const cached = this.db.getCachedEmbedding(contentHash, this.model);
+    const cached = this.storage.getCachedEmbedding(contentHash, this.model);
     if (cached) {
       return cached;
     }
@@ -35,7 +35,7 @@ export class CachedEmbeddingClient implements EmbeddingClient {
     const embedding = await this.client.embed(text);
 
     // Cache it
-    this.db.setCachedEmbedding(contentHash, this.model, embedding);
+    this.storage.setCachedEmbedding(contentHash, this.model, embedding);
 
     return embedding;
   }
@@ -47,7 +47,7 @@ export class CachedEmbeddingClient implements EmbeddingClient {
     const hashes = await Promise.all(texts.map((t) => hashContent(t)));
 
     // Check cache for all
-    const cachedMap = this.db.getCachedEmbeddingsBatch(hashes, this.model);
+    const cachedMap = this.storage.getCachedEmbeddingsBatch(hashes, this.model);
 
     // Find which texts need embedding
     const uncachedIndices: number[] = [];
@@ -72,7 +72,7 @@ export class CachedEmbeddingClient implements EmbeddingClient {
         const hash = hashes[idx as number];
         const embedding = newEmbeddings[i];
         if (hash && embedding) {
-          this.db.setCachedEmbedding(hash, this.model, embedding);
+          this.storage.setCachedEmbedding(hash, this.model, embedding);
         }
       }
     }

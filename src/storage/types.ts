@@ -41,6 +41,15 @@ export interface PendingMemory {
 }
 
 /**
+ * Input for creating a pending memory (id and suggestedAt generated automatically)
+ */
+export interface CreatePendingMemoryInput {
+  memoryData: CreateMemory & { id: string; qdrantId: string };
+  source: "user_store" | "import";
+  reason: string;
+}
+
+/**
  * Result returned when storing in suggested/manual mode
  */
 export interface PendingMemoryResult {

@@ -1,6 +1,6 @@
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import type {
   Memory,
@@ -47,7 +47,7 @@ interface RelatedMemory {
 
 export async function generatePRDescription(
   input: PRDescriptionInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<PRDescriptionResult> {
@@ -73,7 +73,7 @@ export async function generatePRDescription(
     filesChanged,
     commits,
     diff,
-    db,
+    storage,
     vectors,
     embeddings,
   );
@@ -123,7 +123,7 @@ async function findRelatedMemories(
   files: string[],
   commits: string[],
   diff: string,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<RelatedMemory[]> {
@@ -142,7 +142,7 @@ async function findRelatedMemories(
 
     for (const result of fileResults) {
       if (!seenIds.has(result.memoryId)) {
-        const memory = db.getMemory(result.memoryId);
+        const memory = storage.getMemory(result.memoryId);
         if (memory) {
           results.push({ memory, score: result.score });
           seenIds.add(result.memoryId);
@@ -159,7 +159,7 @@ async function findRelatedMemories(
 
     for (const result of commitResults) {
       if (!seenIds.has(result.memoryId) && result.score > 0.5) {
-        const memory = db.getMemory(result.memoryId);
+        const memory = storage.getMemory(result.memoryId);
         if (memory) {
           results.push({ memory, score: result.score });
           seenIds.add(result.memoryId);
@@ -180,7 +180,7 @@ async function findRelatedMemories(
 
     for (const result of decisionResults) {
       if (!seenIds.has(result.memoryId) && result.score > 0.5) {
-        const memory = db.getMemory(result.memoryId);
+        const memory = storage.getMemory(result.memoryId);
         if (memory) {
           results.push({ memory, score: result.score });
           seenIds.add(result.memoryId);
@@ -198,7 +198,7 @@ async function findRelatedMemories(
 
   for (const result of patternResults) {
     if (!seenIds.has(result.memoryId) && result.score > 0.6) {
-      const memory = db.getMemory(result.memoryId);
+      const memory = storage.getMemory(result.memoryId);
       if (memory) {
         results.push({ memory, score: result.score });
         seenIds.add(result.memoryId);

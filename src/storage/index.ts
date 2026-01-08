@@ -15,6 +15,7 @@ export type {
   ExtendedStorageConfig,
   DeleteResult,
   PendingMemory,
+  CreatePendingMemoryInput,
   PendingMemoryResult,
   MemoryRelation,
   CrossLayerRelation,

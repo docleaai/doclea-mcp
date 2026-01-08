@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SQLiteDatabase } from "@/database/sqlite";
+import type { IStorageBackend } from "@/storage/interface";
 import type { VectorStore } from "@/vectors/interface";
 
 export const DeleteMemoryInputSchema = z.object({
@@ -10,19 +10,19 @@ export type DeleteMemoryInput = z.infer<typeof DeleteMemoryInputSchema>;
 
 export async function deleteMemory(
   input: DeleteMemoryInput,
-  db: SQLiteDatabase,
+  storage: IStorageBackend,
   vectors: VectorStore,
 ): Promise<boolean> {
-  const existing = db.getMemory(input.id);
-  if (!existing) {
+  // Delete from SQLite (returns qdrantId for vector cleanup)
+  const result = storage.deleteMemory(input.id);
+  if (!result.success) {
     return false;
   }
 
-  // Delete from Qdrant first
-  if (existing.qdrantId) {
-    await vectors.delete(existing.qdrantId);
+  // Delete from vector store
+  if (result.qdrantId) {
+    await vectors.delete(result.qdrantId);
   }
 
-  // Delete from SQLite
-  return db.deleteMemory(input.id);
+  return true;
 }
