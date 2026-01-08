@@ -133,8 +133,17 @@ export type VectorConfig = z.infer<typeof VectorConfigSchema>;
 // Legacy QdrantConfig type for backwards compatibility
 export type QdrantConfig = z.infer<typeof QdrantConfigSchema>;
 
+// Storage backend and mode types
+export const StorageBackendTypeSchema = z.enum(["sqlite", "memory"]);
+export type StorageBackendType = z.infer<typeof StorageBackendTypeSchema>;
+
+export const StorageModeSchema = z.enum(["manual", "suggested", "automatic"]);
+export type StorageMode = z.infer<typeof StorageModeSchema>;
+
 export const StorageConfigSchema = z.object({
-  dbPath: z.string(),
+  backend: StorageBackendTypeSchema.default("sqlite"),
+  dbPath: z.string().default(".doclea/local.db"),
+  mode: StorageModeSchema.default("automatic"),
 });
 export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 
@@ -153,7 +162,11 @@ export const DEFAULT_CONFIG: Config = {
     dbPath: ".doclea/vectors.db",
     vectorSize: 384,
   },
-  storage: { dbPath: ".doclea/local.db" },
+  storage: {
+    backend: "sqlite",
+    dbPath: ".doclea/local.db",
+    mode: "automatic",
+  },
 };
 
 // Search types

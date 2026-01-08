@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Config, ConfigSchema, DEFAULT_CONFIG } from "./types";
+import { type Config, ConfigSchema, DEFAULT_CONFIG, type StorageConfig } from "./types";
 
 const CONFIG_FILE = ".doclea/config.json";
 
@@ -66,6 +66,46 @@ export async function detectConfig(): Promise<Config> {
 }
 
 /**
+ * Migrate old config format to new format (backwards compatibility)
+ *
+ * Old format: { storage: { dbPath: "..." } }
+ * New format: { storage: { backend: "sqlite", dbPath: "...", mode: "automatic" } }
+ */
+function migrateConfig(rawConfig: Record<string, unknown>): Record<string, unknown> {
+  // If storage is missing or not an object, use defaults
+  if (!rawConfig.storage || typeof rawConfig.storage !== "object") {
+    return {
+      ...rawConfig,
+      storage: DEFAULT_CONFIG.storage,
+    };
+  }
+
+  const storage = rawConfig.storage as Record<string, unknown>;
+
+  // If storage only has dbPath (old format), add backend and mode
+  if (!("backend" in storage) && !("mode" in storage)) {
+    return {
+      ...rawConfig,
+      storage: {
+        backend: "sqlite",
+        dbPath: storage.dbPath ?? DEFAULT_CONFIG.storage.dbPath,
+        mode: "automatic",
+      } satisfies StorageConfig,
+    };
+  }
+
+  // Already new format, just ensure defaults
+  return {
+    ...rawConfig,
+    storage: {
+      backend: storage.backend ?? "sqlite",
+      dbPath: storage.dbPath ?? DEFAULT_CONFIG.storage.dbPath,
+      mode: storage.mode ?? "automatic",
+    },
+  };
+}
+
+/**
  * Load configuration from file or auto-detect
  * File config takes precedence over auto-detection
  */
@@ -78,7 +118,8 @@ export function loadConfig(projectPath: string = process.cwd()): Config {
 
   try {
     const rawConfig = JSON.parse(readFileSync(configPath, "utf-8"));
-    return ConfigSchema.parse(rawConfig);
+    const migratedConfig = migrateConfig(rawConfig);
+    return ConfigSchema.parse(migratedConfig);
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(
@@ -103,7 +144,8 @@ export async function loadConfigWithAutoDetect(
   if (existsSync(configPath)) {
     try {
       const rawConfig = JSON.parse(readFileSync(configPath, "utf-8"));
-      return ConfigSchema.parse(rawConfig);
+      const migratedConfig = migrateConfig(rawConfig);
+      return ConfigSchema.parse(migratedConfig);
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(

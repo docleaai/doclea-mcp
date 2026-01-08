@@ -19,6 +19,7 @@ import { migration002CodeGraph } from "./002_code_graph";
 import { migration003MemoryRelations } from "./003_memory_relations";
 import { migration004RelationSuggestions } from "./004_relation_suggestions";
 import { migration005CrossLayerRelations } from "./005_cross_layer_relations";
+import { migration006PendingMemories } from "./006_pending_memories";
 
 /**
  * All migrations in version order
@@ -30,6 +31,7 @@ export const migrations = [
   migration003MemoryRelations,
   migration004RelationSuggestions,
   migration005CrossLayerRelations,
+  migration006PendingMemories,
 ];
 
 /**

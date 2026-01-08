@@ -464,7 +464,7 @@
       padding: 1.5rem;
       font-family: var(--font-mono);
       font-size: 0.85rem;
-      min-height: 320px;
+      min-height: 430px;
     }
 
     .terminal-line {
@@ -500,6 +500,20 @@
 
     .terminal-warning {
       color: var(--accent-warm);
+    }
+
+    .terminal-string {
+      color: var(--accent-success);
+    }
+
+    .terminal-ai-label {
+      color: var(--accent-electric);
+      font-weight: 500;
+    }
+
+    .terminal-action {
+      color: var(--text-muted);
+      font-style: italic;
     }
 
     .terminal-cursor {
@@ -4718,16 +4732,15 @@
     // TERMINAL DEMO ANIMATION
     // ============================================
     const terminalLines = [
-      { type: 'prompt', text: '$ claude' },
-      { type: 'command', text: ' "How does our auth work?"' },
+      { type: 'prompt-full', text: '<span class="terminal-prompt">$</span> <span class="terminal-command">claude</span> <span class="terminal-string">"How does our auth work?"</span>' },
       { type: 'output', text: '' },
-      { type: 'warning', text: 'I don\'t have context about your codebase.' },
-      { type: 'output', text: 'Could you share the relevant files?' },
+      { type: 'ai-label', text: 'Claude:' },
+      { type: 'warning', text: '  I don\'t have context about your codebase.' },
+      { type: 'warning', text: '  Could you share the relevant files?' },
       { type: 'output', text: '' },
-      { type: 'prompt', text: '$ ' },
-      { type: 'error', text: '*pastes auth.ts, middleware.ts, types.ts*' },
-      { type: 'error', text: '*pastes README section*' },
-      { type: 'error', text: '*explains the same thing for the 47th time*' },
+      { type: 'action', text: '*pastes auth.ts, middleware.ts, types.ts*' },
+      { type: 'action', text: '*pastes README section*' },
+      { type: 'action', text: '*explains the same thing for the 47th time*' },
       { type: 'output', text: '' },
       { type: 'muted', text: '# Tomorrow: repeat.' },
     ];
@@ -4743,16 +4756,22 @@
           const lineEl = document.createElement('div');
           lineEl.className = 'terminal-line';
 
-          if (line.type === 'prompt') {
+          if (line.type === 'prompt-full') {
+            lineEl.innerHTML = line.text;
+          } else if (line.type === 'prompt') {
             lineEl.innerHTML = `<span class="terminal-prompt">${line.text}</span>`;
           } else if (line.type === 'command') {
             lineEl.innerHTML = `<span class="terminal-command">${line.text}</span>`;
           } else if (line.type === 'output') {
             lineEl.innerHTML = `<span class="terminal-output">${line.text}</span>`;
+          } else if (line.type === 'ai-label') {
+            lineEl.innerHTML = `<span class="terminal-ai-label">${line.text}</span>`;
           } else if (line.type === 'error') {
             lineEl.innerHTML = `<span class="terminal-error">${line.text}</span>`;
           } else if (line.type === 'warning') {
             lineEl.innerHTML = `<span class="terminal-warning">${line.text}</span>`;
+          } else if (line.type === 'action') {
+            lineEl.innerHTML = `<span class="terminal-action">${line.text}</span>`;
           } else if (line.type === 'muted') {
             lineEl.innerHTML = `<span style="color: var(--text-muted)">${line.text}</span>`;
           }
@@ -4776,14 +4795,9 @@
 
         delay += line.text.length * 20 + 400;
       });
-
-      // Loop the demo
-      setTimeout(() => {
-        runTerminalDemo();
-      }, delay + 5000);
     }
 
-    // Start terminal after hero is visible
+    // Start terminal once after hero is visible
     setTimeout(runTerminalDemo, 1500);
 
     // ============================================
