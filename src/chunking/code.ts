@@ -225,6 +225,8 @@ export interface CodeChunkMetadata {
   isFunction: boolean;
   /** Whether this is a class/type definition */
   isClass: boolean;
+  /** Whether this is exported (optional, may be computed later) */
+  isExported?: boolean;
 }
 
 /**
@@ -268,7 +270,7 @@ async function initTreeSitter(): Promise<typeof import("web-tree-sitter")> {
     process.cwd(),
     "node_modules",
     "web-tree-sitter",
-    "tree-sitter.wasm"
+    "tree-sitter.wasm",
   );
 
   // Initialize Parser with WASM location
@@ -284,9 +286,7 @@ async function initTreeSitter(): Promise<typeof import("web-tree-sitter")> {
 /**
  * Load a language grammar
  */
-async function loadLanguage(
-  language: SupportedLanguage
-): Promise<unknown> {
+async function loadLanguage(language: SupportedLanguage): Promise<unknown> {
   if (languageCache.has(language)) {
     return languageCache.get(language);
   }
@@ -294,11 +294,7 @@ async function loadLanguage(
   const TreeSitter = await initTreeSitter();
   const config = LANGUAGE_CONFIGS[language];
 
-  const wasmPath = join(
-    process.cwd(),
-    "node_modules",
-    config.wasmPath
-  );
+  const wasmPath = join(process.cwd(), "node_modules", config.wasmPath);
 
   const lang = await TreeSitter.Language.load(wasmPath);
   languageCache.set(language, lang);
@@ -334,13 +330,12 @@ export function getSupportedExtensions(): string[] {
 /**
  * Extract the name from a node if available
  */
-function extractNodeName(node: TreeSitterNode, language: SupportedLanguage): string | null {
+function extractNodeName(
+  node: TreeSitterNode,
+  language: SupportedLanguage,
+): string | null {
   // Common patterns for finding names
-  const namePatterns = [
-    "name",
-    "identifier",
-    "property_identifier",
-  ];
+  const namePatterns = ["name", "identifier", "property_identifier"];
 
   for (const pattern of namePatterns) {
     const nameNode = node.childForFieldName?.(pattern);
@@ -352,7 +347,10 @@ function extractNodeName(node: TreeSitterNode, language: SupportedLanguage): str
   // Try first identifier child
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
-    if (child && (child.type === "identifier" || child.type === "type_identifier")) {
+    if (
+      child &&
+      (child.type === "identifier" || child.type === "type_identifier")
+    ) {
       return child.text;
     }
   }
@@ -389,7 +387,7 @@ interface TreeSitterTree {
 export async function chunkCode(
   code: string,
   language: SupportedLanguage,
-  options: CodeChunkOptions = {}
+  options: CodeChunkOptions = {},
 ): Promise<CodeChunk[]> {
   const {
     maxTokens = 512,
@@ -481,7 +479,7 @@ export async function chunkCode(
         config,
         maxTokens,
         includeImports ? importBlock : "",
-        model
+        model,
       );
       chunks.push(...subChunks);
     } else {
@@ -517,7 +515,7 @@ async function splitLargeNode(
   config: LanguageConfig,
   maxTokens: number,
   importBlock: string,
-  model?: string
+  model?: string,
 ): Promise<CodeChunk[]> {
   const chunks: CodeChunk[] = [];
   const parentName = extractNodeName(node, language);
@@ -526,14 +524,17 @@ async function splitLargeNode(
   if (config.classNodes.includes(node.type)) {
     const methods: TreeSitterNode[] = [];
     const otherContent: string[] = [];
-    let lastEnd = node.startIndex;
+    const lastEnd = node.startIndex;
 
     // Find all method definitions within the class
     collectChildNodes(node, config.functionNodes, methods);
 
     if (methods.length > 0) {
       // Get class signature (everything before first method)
-      const classStart = node.text.substring(0, methods[0].startIndex - node.startIndex);
+      const classStart = node.text.substring(
+        0,
+        methods[0].startIndex - node.startIndex,
+      );
 
       for (const method of methods) {
         const methodText = importBlock + classStart + method.text + "\n}";
@@ -632,7 +633,7 @@ async function splitLargeNode(
 function collectChildNodes(
   node: TreeSitterNode,
   types: string[],
-  result: TreeSitterNode[]
+  result: TreeSitterNode[],
 ): void {
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
@@ -652,7 +653,7 @@ function collectChildNodes(
 export async function chunkCodeFile(
   code: string,
   filename: string,
-  options: CodeChunkOptions = {}
+  options: CodeChunkOptions = {},
 ): Promise<CodeChunk[]> {
   const language = detectLanguage(filename);
 
@@ -670,7 +671,7 @@ export async function chunkCodeFile(
 export async function chunkCodeFallback(
   code: string,
   filename: string,
-  options: CodeChunkOptions = {}
+  options: CodeChunkOptions = {},
 ): Promise<CodeChunk[]> {
   const { maxTokens = 512, model } = options;
   const lines = code.split("\n");
