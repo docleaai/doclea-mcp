@@ -3649,7 +3649,7 @@
             <p>Natural language queries with deep context. Get answers that reference actual code, decisions, and experts.</p>
             <div class="feature-demo">
               <span class="muted">User:</span> "How do we handle failed payments?"<br><br>
-              <span class="highlight">DevMemory:</span> Based on your codebase:<br>
+              <span class="highlight">doclea:</span> Based on your codebase:<br>
               1. Webhook receives Stripe event <span class="cmd">(src/webhooks/stripe.ts:47)</span><br>
               2. Failed payments trigger retry logic (max 3)<br>
               3. After 3 failures → <span class="cmd">sendPaymentFailedEmail()</span><br>
@@ -3665,9 +3665,9 @@
               </div>
               <h4>Onboarding Mode</h4>
             </div>
-            <p>New dev joins → DevMemory becomes their guide. Project structure, setup, who to ask — all in one command.</p>
+            <p>New dev joins → doclea becomes their guide. Project structure, setup, who to ask — all in one command.</p>
             <div class="feature-demo">
-              <span class="cmd">$ devmemory onboard</span><br><br>
+              <span class="cmd">$ doclea onboard</span><br><br>
               Welcome to <span class="highlight">Acme Corp</span> codebase!<br><br>
               <span class="success">Project Structure</span><br>
               ├── Next.js 14 + App Router<br>
@@ -3686,9 +3686,9 @@
               </div>
               <h4>Code Review Assistant</h4>
             </div>
-            <p>PR opened → DevMemory adds context automatically. Relevant decisions, patterns to follow, potential issues.</p>
+            <p>PR opened → doclea adds context automatically. Relevant decisions, patterns to follow, potential issues.</p>
             <div class="feature-demo">
-              <span class="highlight">DevMemory Context</span><br><br>
+              <span class="highlight">doclea Context</span><br><br>
               This PR touches authentication.<br><br>
               <span class="success">Relevant decisions:</span><br>
               ├── AUTH-001: Rotating refresh tokens<br>
@@ -3705,10 +3705,10 @@
               </div>
               <h4>Slack/Discord Bot</h4>
             </div>
-            <p>Query memories from team chat. No context-switching, just ask @devmemory and get instant answers.</p>
+            <p>Query memories from team chat. No context-switching, just ask @doclea and get instant answers.</p>
             <div class="feature-demo">
-              <span class="highlight">@devmemory</span> why do we use Prisma?<br><br>
-              <span class="success">DevMemory:</span> Team decided on Prisma (Jan 15):<br>
+              <span class="highlight">@doclea</span> why do we use Prisma?<br><br>
+              <span class="success">doclea:</span> Team decided on Prisma (Jan 15):<br>
               • Type safety with TypeScript<br>
               • Great migration system<br>
               • Better DX than Drizzle at the time<br><br>
@@ -3746,7 +3746,7 @@
             </div>
             <p>See coverage gaps, stale documentation, and areas that need attention. Keep your knowledge fresh.</p>
             <div class="feature-demo">
-              <span class="cmd">$ devmemory health</span><br><br>
+              <span class="cmd">$ doclea health</span><br><br>
               <span class="highlight">Coverage by area:</span><br>
               src/auth/* &nbsp;&nbsp;&nbsp;&nbsp;<span class="success">████████████████</span> 95%<br>
               src/api/* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="warn">████████████░░░░</span> 60%<br>
@@ -3765,7 +3765,7 @@
             </div>
             <p>IDE extension shows related context for your current file. Decisions, patterns, experts — right where you code.</p>
             <div class="feature-demo">
-              <span class="highlight">DevMemory</span> — src/auth/login.ts<br><br>
+              <span class="highlight">doclea</span> — src/auth/login.ts<br><br>
               <span class="success">Related:</span><br>
               ├── Decision: JWT + refresh tokens<br>
               ├── Pattern: Error handling<br>
@@ -3785,7 +3785,7 @@
             </div>
             <p>Import meeting notes from Notion. AI extracts decisions automatically. No manual documentation needed.</p>
             <div class="feature-demo">
-              <span class="cmd">$ devmemory import meeting --from notion</span><br><br>
+              <span class="cmd">$ doclea import meeting --from notion</span><br><br>
               Analyzing "<span class="highlight">Backend Sync - Dec 5</span>"...<br><br>
               <span class="success">Found 3 potential decisions:</span><br>
               ├── "Switch to Upstash for Redis" <span class="muted">— Save?</span><br>
@@ -3804,7 +3804,7 @@
             </div>
             <p>CVE alerts with context. Know who added the dep, where it's used, and get migration suggestions.</p>
             <div class="feature-demo">
-              <span class="warn">DevMemory Alert</span><br><br>
+              <span class="warn">doclea Alert</span><br><br>
               <span class="highlight">lodash</span> has new CVE: CVE-2025-1234<br>
               Used in 47 files, added by <span class="highlight">@mike</span><br><br>
               <span class="muted">Your usage:</span><br>
@@ -3835,7 +3835,7 @@
             </div>
             <p>One command scans codebase, git history, PRs, docs. Immediate value.</p>
             <div class="bento-demo">
-              <span class="cmd">$ npx devmemory init</span><br><br>
+              <span class="cmd">$ npx doclea init</span><br><br>
               <span class="success">Scanning:</span> Codebase <span class="success">✓</span> Git (1,247 commits) <span class="success">✓</span> PRs (89) <span class="success">✓</span><br><br>
               <span class="highlight">Generated:</span> 12 decisions, 18 patterns, 8 solutions, 9 experts
             </div>
@@ -3883,7 +3883,7 @@
             </div>
             <p>API docs, components, architecture, runbooks.</p>
             <div class="bento-demo">
-              <span class="cmd">$ devmemory docs generate</span><br><br>
+              <span class="cmd">$ doclea docs generate</span><br><br>
               API.md (47 endpoints) | COMPONENTS.md (23)<br>
               ARCHITECTURE.md | RUNBOOK.md
             </div>
@@ -4141,7 +4141,7 @@
                 <td class="partial">Basic</td>
               </tr>
               <tr class="highlight-row">
-                <td>DevMemory</td>
+                <td>doclea</td>
                 <td class="check">Structured + Vector</td>
                 <td class="check">Deep (blame, PRs)</td>
                 <td class="check">Smart modes</td>
@@ -4332,7 +4332,7 @@
               <ul>
                 <li>Enterprise features (SSO, audit)</li>
                 <li>Partner integrations</li>
-                <li>DevMemory Embed beta</li>
+                <li>doclea Embed beta</li>
                 <li>Potential seed round</li>
               </ul>
             </div>
@@ -4599,10 +4599,10 @@
           </div>
           <div class="future-content">
             <div>
-              <h3>DevMemory Embed</h3>
+              <h3>doclea Embed</h3>
               <p>
                 Most customer-facing chatbots know <strong>what</strong> your product does.
-                None know <strong>why</strong> it works that way. DevMemory Embed brings
+                None know <strong>why</strong> it works that way. doclea Embed brings
                 your internal context to customer-facing AI — technical accuracy that
                 actually understands your architecture decisions.
               </p>
@@ -4628,7 +4628,7 @@
             <div class="future-demo">
               <div class="future-demo-header">
                 <i data-lucide="message-square"></i>
-                Support Chat (DevMemory-powered)
+                Support Chat (doclea-powered)
               </div>
               <div class="future-demo-body">
                 <div class="future-demo-msg user">
