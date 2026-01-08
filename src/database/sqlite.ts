@@ -1,6 +1,7 @@
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { MigrationRunner, migrations } from "@/migrations";
 import type {
   Chunk,
   CreateMemory,
@@ -8,7 +9,6 @@ import type {
   Memory,
   UpdateMemory,
 } from "@/types";
-import { MigrationRunner, migrations } from "@/migrations";
 
 export class SQLiteDatabase {
   private db: Database;
@@ -38,9 +38,7 @@ export class SQLiteDatabase {
       if (!r.success) {
         console.error(`[doclea] Migration failed: ${r.error}`);
       } else if (r.applied.length > 0) {
-        console.log(
-          `[doclea] Applied migrations: ${r.applied.join(", ")}`,
-        );
+        console.log(`[doclea] Applied migrations: ${r.applied.join(", ")}`);
       }
     });
   }
@@ -254,8 +252,13 @@ export class SQLiteDatabase {
    * Find memories created within a time range
    * Used for temporal proximity detection in relation detection
    */
-  findByTimeRange(startTime: number, endTime: number, excludeId?: string): Memory[] {
-    let query = "SELECT * FROM memories WHERE created_at >= ? AND created_at <= ?";
+  findByTimeRange(
+    startTime: number,
+    endTime: number,
+    excludeId?: string,
+  ): Memory[] {
+    let query =
+      "SELECT * FROM memories WHERE created_at >= ? AND created_at <= ?";
     const params: (string | number)[] = [startTime, endTime];
 
     if (excludeId) {
@@ -414,6 +417,8 @@ export class SQLiteDatabase {
       qdrantId: row.qdrant_id ?? undefined,
       createdAt: row.created_at,
       accessedAt: row.accessed_at,
+      accessCount:
+        (row as MemoryRow & { access_count?: number }).access_count ?? 0,
     };
   }
 

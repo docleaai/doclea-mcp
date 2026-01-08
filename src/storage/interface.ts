@@ -7,14 +7,20 @@
  */
 
 import type { Database } from "bun:sqlite";
-import type { Memory, CreateMemory, UpdateMemory, Document, Chunk } from "@/types";
 import type {
+  Chunk,
+  CreateMemory,
+  Document,
+  Memory,
+  UpdateMemory,
+} from "@/types";
+import type {
+  CreatePendingMemoryInput,
+  DeleteResult,
+  ListMemoriesOptions,
+  PendingMemory,
   StorageBackendType,
   StorageMode,
-  DeleteResult,
-  PendingMemory,
-  CreatePendingMemoryInput,
-  ListMemoriesOptions,
 } from "./types";
 
 /**
@@ -56,7 +62,9 @@ export interface IStorageBackend {
   /**
    * Create a new memory
    */
-  createMemory(memory: CreateMemory & { id: string; qdrantId?: string }): Memory;
+  createMemory(
+    memory: CreateMemory & { id: string; qdrantId?: string },
+  ): Memory;
 
   /**
    * Get a memory by ID
@@ -71,7 +79,10 @@ export interface IStorageBackend {
   /**
    * Update a memory
    */
-  updateMemory(id: string, updates: UpdateMemory & { qdrantId?: string }): Memory | null;
+  updateMemory(
+    id: string,
+    updates: UpdateMemory & { qdrantId?: string },
+  ): Memory | null;
 
   /**
    * Delete a memory - returns qdrantId for vector store cleanup
@@ -96,12 +107,23 @@ export interface IStorageBackend {
   /**
    * Find memories created within a time range
    */
-  findByTimeRange(startTime: number, endTime: number, excludeId?: string): Memory[];
+  findByTimeRange(
+    startTime: number,
+    endTime: number,
+    excludeId?: string,
+  ): Memory[];
 
   /**
    * Search memories by tags
    */
   searchByTags(tags: string[], excludeId?: string): Memory[];
+
+  /**
+   * Increment the access count for a memory (atomic operation).
+   * Also updates accessed_at timestamp.
+   * Used by multi-factor relevance scoring for usage frequency tracking.
+   */
+  incrementAccessCount(id: string): boolean;
 
   // ============================================
   // Document/Chunk Operations
@@ -139,12 +161,19 @@ export interface IStorageBackend {
   /**
    * Store an embedding in the cache
    */
-  setCachedEmbedding(contentHash: string, model: string, embedding: number[]): void;
+  setCachedEmbedding(
+    contentHash: string,
+    model: string,
+    embedding: number[],
+  ): void;
 
   /**
    * Get multiple cached embeddings in batch
    */
-  getCachedEmbeddingsBatch(contentHashes: string[], model: string): Map<string, number[]>;
+  getCachedEmbeddingsBatch(
+    contentHashes: string[],
+    model: string,
+  ): Map<string, number[]>;
 
   /**
    * Clear the embedding cache (optionally for a specific model)

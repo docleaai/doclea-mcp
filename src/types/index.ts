@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ScoringConfigSchema } from "@/scoring/types";
 
 // Memory types
 export const MemoryTypeSchema = z.enum([
@@ -25,6 +26,7 @@ export const MemorySchema = z.object({
   qdrantId: z.string().optional(),
   createdAt: z.number(),
   accessedAt: z.number(),
+  accessCount: z.number().int().min(0).default(0),
 });
 export type Memory = z.infer<typeof MemorySchema>;
 
@@ -33,6 +35,7 @@ export const CreateMemorySchema = MemorySchema.omit({
   qdrantId: true,
   createdAt: true,
   accessedAt: true,
+  accessCount: true,
 });
 export type CreateMemory = z.infer<typeof CreateMemorySchema>;
 
@@ -151,6 +154,7 @@ export const ConfigSchema = z.object({
   embedding: EmbeddingConfigSchema,
   vector: VectorConfigSchema,
   storage: StorageConfigSchema,
+  scoring: ScoringConfigSchema.optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -183,6 +187,38 @@ export const SearchResultSchema = z.object({
   score: z.number(),
 });
 export type SearchResult = z.infer<typeof SearchResultSchema>;
+
+// Scoring schemas for multi-factor relevance scoring
+export const AppliedBoostSchema = z.object({
+  name: z.string(),
+  factor: z.number(),
+  reason: z.string(),
+});
+export type AppliedBoost = z.infer<typeof AppliedBoostSchema>;
+
+export const ScoreBreakdownSchema = z.object({
+  semantic: z.number().min(0).max(1),
+  recency: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1),
+  frequency: z.number().min(0).max(1),
+  weights: z.object({
+    semantic: z.number(),
+    recency: z.number(),
+    confidence: z.number(),
+    frequency: z.number(),
+  }),
+  boosts: z.array(AppliedBoostSchema).default([]),
+  rawScore: z.number(),
+  finalScore: z.number(),
+});
+export type ScoreBreakdown = z.infer<typeof ScoreBreakdownSchema>;
+
+export const ScoredSearchResultSchema = z.object({
+  memory: MemorySchema,
+  score: z.number(),
+  breakdown: ScoreBreakdownSchema.optional(),
+});
+export type ScoredSearchResult = z.infer<typeof ScoredSearchResultSchema>;
 
 // Git types
 export const ExpertSchema = z.object({

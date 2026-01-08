@@ -5,21 +5,27 @@
  * Refactored from src/database/sqlite.ts to implement IStorageBackend.
  */
 
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Memory, CreateMemory, UpdateMemory, Document, Chunk } from "@/types";
+import { randomUUID } from "crypto";
 import { MigrationRunner, migrations } from "@/migrations";
+import type {
+  Chunk,
+  CreateMemory,
+  Document,
+  Memory,
+  UpdateMemory,
+} from "@/types";
 import type { IStorageBackend } from "./interface";
 import type {
+  CreatePendingMemoryInput,
+  DeleteResult,
+  ListMemoriesOptions,
+  PendingMemory,
   StorageBackendType,
   StorageMode,
-  DeleteResult,
-  PendingMemory,
-  CreatePendingMemoryInput,
-  ListMemoriesOptions,
 } from "./types";
-import { randomUUID } from "crypto";
 
 /**
  * SQLite storage backend
@@ -97,7 +103,9 @@ export class SqliteStorageBackend implements IStorageBackend {
   // Memory Operations
   // ============================================
 
-  createMemory(memory: CreateMemory & { id: string; qdrantId?: string }): Memory {
+  createMemory(
+    memory: CreateMemory & { id: string; qdrantId?: string },
+  ): Memory {
     const now = Math.floor(Date.now() / 1000);
     const stmt = this.db.prepare(`
       INSERT INTO memories (
@@ -144,7 +152,10 @@ export class SqliteStorageBackend implements IStorageBackend {
     return row ? this.rowToMemory(row) : null;
   }
 
-  updateMemory(id: string, updates: UpdateMemory & { qdrantId?: string }): Memory | null {
+  updateMemory(
+    id: string,
+    updates: UpdateMemory & { qdrantId?: string },
+  ): Memory | null {
     const existing = this.getMemory(id);
     if (!existing) return null;
 
@@ -281,8 +292,13 @@ export class SqliteStorageBackend implements IStorageBackend {
     return rows.map((row) => this.rowToMemory(row));
   }
 
-  findByTimeRange(startTime: number, endTime: number, excludeId?: string): Memory[] {
-    let query = "SELECT * FROM memories WHERE created_at >= ? AND created_at <= ?";
+  findByTimeRange(
+    startTime: number,
+    endTime: number,
+    excludeId?: string,
+  ): Memory[] {
+    let query =
+      "SELECT * FROM memories WHERE created_at >= ? AND created_at <= ?";
     const params: (string | number)[] = [startTime, endTime];
 
     if (excludeId) {
@@ -317,6 +333,22 @@ export class SqliteStorageBackend implements IStorageBackend {
     const stmt = this.db.prepare(query);
     const rows = stmt.all(...params) as MemoryRow[];
     return rows.map((row) => this.rowToMemory(row));
+  }
+
+  /**
+   * Increment the access count for a memory (atomic operation).
+   * Also updates accessed_at timestamp.
+   * Used by multi-factor relevance scoring for usage frequency tracking.
+   */
+  incrementAccessCount(id: string): boolean {
+    const now = Math.floor(Date.now() / 1000);
+    const stmt = this.db.prepare(`
+      UPDATE memories
+      SET access_count = COALESCE(access_count, 0) + 1, accessed_at = ?
+      WHERE id = ?
+    `);
+    const result = stmt.run(now, id);
+    return result.changes > 0;
   }
 
   // ============================================
@@ -373,12 +405,18 @@ export class SqliteStorageBackend implements IStorageBackend {
     const stmt = this.db.prepare(
       "SELECT embedding FROM embedding_cache WHERE content_hash = ? AND model = ?",
     );
-    const row = stmt.get(contentHash, model) as { embedding: string } | undefined;
+    const row = stmt.get(contentHash, model) as
+      | { embedding: string }
+      | undefined;
     if (!row) return null;
     return JSON.parse(row.embedding);
   }
 
-  setCachedEmbedding(contentHash: string, model: string, embedding: number[]): void {
+  setCachedEmbedding(
+    contentHash: string,
+    model: string,
+    embedding: number[],
+  ): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO embedding_cache (content_hash, model, embedding, created_at)
       VALUES (?, ?, ?, unixepoch())
@@ -386,7 +424,10 @@ export class SqliteStorageBackend implements IStorageBackend {
     stmt.run(contentHash, model, JSON.stringify(embedding));
   }
 
-  getCachedEmbeddingsBatch(contentHashes: string[], model: string): Map<string, number[]> {
+  getCachedEmbeddingsBatch(
+    contentHashes: string[],
+    model: string,
+  ): Map<string, number[]> {
     if (contentHashes.length === 0) return new Map();
 
     const placeholders = contentHashes.map(() => "?").join(", ");
@@ -407,7 +448,9 @@ export class SqliteStorageBackend implements IStorageBackend {
 
   clearEmbeddingCache(model?: string): number {
     if (model) {
-      const stmt = this.db.prepare("DELETE FROM embedding_cache WHERE model = ?");
+      const stmt = this.db.prepare(
+        "DELETE FROM embedding_cache WHERE model = ?",
+      );
       return stmt.run(model).changes;
     }
     const stmt = this.db.prepare("DELETE FROM embedding_cache");
@@ -451,7 +494,9 @@ export class SqliteStorageBackend implements IStorageBackend {
   }
 
   getPendingMemories(): PendingMemory[] {
-    const stmt = this.db.prepare("SELECT * FROM pending_memories ORDER BY suggested_at DESC");
+    const stmt = this.db.prepare(
+      "SELECT * FROM pending_memories ORDER BY suggested_at DESC",
+    );
     const rows = stmt.all() as PendingMemoryRow[];
     return rows.map((row) => this.rowToPendingMemory(row));
   }
@@ -482,6 +527,7 @@ export class SqliteStorageBackend implements IStorageBackend {
       qdrantId: row.qdrant_id ?? undefined,
       createdAt: row.created_at,
       accessedAt: row.accessed_at,
+      accessCount: row.access_count ?? 0,
     };
   }
 
@@ -534,6 +580,7 @@ interface MemoryRow {
   qdrant_id: string | null;
   created_at: number;
   accessed_at: number;
+  access_count: number | null;
 }
 
 interface DocumentRow {

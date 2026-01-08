@@ -1,7 +1,16 @@
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
-import { MemoryTypeSchema, type SearchResult } from "@/types";
+import {
+  createEmptyBreakdown,
+  RelevanceScorer,
+  type ScoringConfig,
+} from "@/scoring";
+import type { IStorageBackend } from "@/storage/interface";
+import {
+  MemoryTypeSchema,
+  type ScoredSearchResult,
+  type SearchResult,
+} from "@/types";
 import type { VectorStore } from "@/vectors/interface";
 
 export const SearchMemoryInputSchema = z.object({
@@ -28,14 +37,27 @@ export const SearchMemoryInputSchema = z.object({
 
 export type SearchMemoryInput = z.infer<typeof SearchMemoryInputSchema>;
 
+/**
+ * Search memories with optional multi-factor relevance scoring.
+ *
+ * When scoring is enabled, fetches more results from vector search,
+ * applies multi-factor scoring (semantic, recency, confidence, frequency),
+ * re-ranks, and returns top N results with score breakdowns.
+ */
 export async function searchMemory(
   input: SearchMemoryInput,
   storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
-): Promise<SearchResult[]> {
+  scoringConfig?: ScoringConfig,
+): Promise<ScoredSearchResult[]> {
   // Generate query embedding
   const queryVector = await embeddings.embed(input.query);
+
+  // Determine how many results to fetch from vector search
+  const fetchLimit = scoringConfig?.enabled
+    ? input.limit * (scoringConfig.searchOverfetch || 3)
+    : input.limit;
 
   // Search vectors with filters
   const vectorResults = await vectors.search(
@@ -46,7 +68,7 @@ export async function searchMemory(
       minImportance: input.minImportance,
       relatedFiles: input.relatedFiles,
     },
-    input.limit,
+    fetchLimit,
   );
 
   if (vectorResults.length === 0) {
@@ -60,10 +82,26 @@ export async function searchMemory(
   // Map scores to memories
   const scoreMap = new Map(vectorResults.map((r) => [r.memoryId, r.score]));
 
-  return memories
+  // Build initial results
+  const results: SearchResult[] = memories
     .map((memory) => ({
       memory,
       score: scoreMap.get(memory.id) ?? 0,
     }))
     .sort((a, b) => b.score - a.score);
+
+  // Apply multi-factor scoring if enabled
+  if (scoringConfig?.enabled) {
+    const scorer = new RelevanceScorer(scoringConfig);
+    const now = Math.floor(Date.now() / 1000);
+    const scored = scorer.scoreMany(results, now);
+    // Return only the requested number of results
+    return scored.slice(0, input.limit);
+  }
+
+  // Legacy path: return with empty breakdown
+  return results.slice(0, input.limit).map((r) => ({
+    ...r,
+    breakdown: createEmptyBreakdown(r.score),
+  }));
 }
