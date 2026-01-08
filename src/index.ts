@@ -75,6 +75,20 @@ import {
   ReviewSuggestionInputSchema,
   BulkReviewInputSchema,
 } from "./tools/relation-detection";
+import {
+  suggestRelations,
+  getCodeForMemory,
+  getMemoriesForCode,
+  getCrossLayerSuggestions,
+  reviewCrossLayerSuggestion,
+  bulkReviewCrossLayer,
+  SuggestRelationsInputSchema,
+  GetCodeForMemoryInputSchema,
+  GetMemoriesForCodeInputSchema,
+  GetCrossLayerSuggestionsInputSchema,
+  ReviewCrossLayerSuggestionInputSchema,
+  BulkReviewCrossLayerInputSchema,
+} from "./tools/cross-layer-relations";
 
 // Initialize services
 const config = loadConfig();
@@ -1545,6 +1559,226 @@ server.registerTool(
 	},
 	async (args) => {
 		const result = await bulkReview(
+			{
+				suggestionIds: args.suggestionIds,
+				action: args.action,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{
+					type: "text",
+					text: JSON.stringify(
+						{
+							processed: result.processed,
+							relationsCreated: result.relationsCreated,
+							failed: result.failed,
+						},
+						null,
+						2,
+					),
+				},
+			],
+		};
+	},
+);
+
+// Register Cross-Layer Relation tools
+server.registerTool(
+	"doclea_suggest_relations",
+	{
+		title: "Suggest Cross-Layer Relations",
+		description:
+			"Detect and suggest relationships between code and memory entities. Use entityType='memory' to find code that a memory documents, or entityType='code' to find memories that code implements.",
+		inputSchema: {
+			entityId: z.string().describe("ID of the entity (memory or code node)"),
+			entityType: z.enum(["code", "memory"]).describe("Type of entity"),
+			relationTypes: z
+				.array(z.enum(["documents", "addresses", "exemplifies"]))
+				.optional()
+				.describe("Filter by relation types"),
+			minConfidence: z
+				.number()
+				.min(0)
+				.max(1)
+				.optional()
+				.describe("Minimum confidence threshold (default: 0.6)"),
+		},
+	},
+	async (args) => {
+		const result = await suggestRelations(
+			{
+				entityId: args.entityId,
+				entityType: args.entityType,
+				relationTypes: args.relationTypes,
+				minConfidence: args.minConfidence ?? 0.6,
+			},
+			db.getDatabase(),
+			db,
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.result, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_get_code_for_memory",
+	{
+		title: "Get Code for Memory",
+		description:
+			"Get code nodes related to a memory through cross-layer relations (documents, addresses, exemplifies).",
+		inputSchema: {
+			memoryId: z.string().describe("Memory ID to get code for"),
+			relationType: z
+				.enum(["documents", "addresses", "exemplifies"])
+				.optional()
+				.describe("Filter by relation type"),
+		},
+	},
+	async (args) => {
+		const result = await getCodeForMemory(
+			{
+				memoryId: args.memoryId,
+				relationType: args.relationType,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.relations, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_get_memories_for_code",
+	{
+		title: "Get Memories for Code",
+		description:
+			"Get memories related to a code node through cross-layer relations.",
+		inputSchema: {
+			codeNodeId: z.string().describe("Code node ID to get memories for"),
+			relationType: z
+				.enum(["documents", "addresses", "exemplifies"])
+				.optional()
+				.describe("Filter by relation type"),
+		},
+	},
+	async (args) => {
+		const result = await getMemoriesForCode(
+			{
+				codeNodeId: args.codeNodeId,
+				relationType: args.relationType,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.relations, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_get_cross_layer_suggestions",
+	{
+		title: "Get Cross-Layer Suggestions",
+		description:
+			"Get pending cross-layer relation suggestions for review. Filter by memory, code node, or detection method.",
+		inputSchema: {
+			memoryId: z.string().optional().describe("Filter by memory ID"),
+			codeNodeId: z.string().optional().describe("Filter by code node ID"),
+			detectionMethod: z
+				.enum(["code_reference", "file_path_match", "keyword_match"])
+				.optional()
+				.describe("Filter by detection method"),
+			minConfidence: z
+				.number()
+				.min(0)
+				.max(1)
+				.optional()
+				.describe("Minimum confidence score"),
+			limit: z.number().min(1).max(100).optional().describe("Maximum results"),
+			offset: z.number().min(0).optional().describe("Offset for pagination"),
+		},
+	},
+	async (args) => {
+		const result = await getCrossLayerSuggestions(
+			{
+				memoryId: args.memoryId,
+				codeNodeId: args.codeNodeId,
+				detectionMethod: args.detectionMethod,
+				minConfidence: args.minConfidence,
+				limit: args.limit ?? 20,
+				offset: args.offset ?? 0,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [
+				{ type: "text", text: result.message },
+				{ type: "text", text: "\n\n" },
+				{ type: "text", text: JSON.stringify(result.suggestions, null, 2) },
+			],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_review_cross_layer_suggestion",
+	{
+		title: "Review Cross-Layer Suggestion",
+		description:
+			"Approve or reject a single cross-layer relation suggestion. Approved suggestions create relations.",
+		inputSchema: {
+			suggestionId: z.string().describe("Suggestion ID to review"),
+			action: z.enum(["approve", "reject"]).describe("Action to take"),
+		},
+	},
+	async (args) => {
+		const result = await reviewCrossLayerSuggestion(
+			{
+				suggestionId: args.suggestionId,
+				action: args.action,
+			},
+			db.getDatabase(),
+		);
+		return {
+			content: [{ type: "text", text: result.message }],
+		};
+	},
+);
+
+server.registerTool(
+	"doclea_bulk_review_cross_layer",
+	{
+		title: "Bulk Review Cross-Layer Suggestions",
+		description:
+			"Approve or reject multiple cross-layer relation suggestions at once.",
+		inputSchema: {
+			suggestionIds: z
+				.array(z.string())
+				.min(1)
+				.describe("Suggestion IDs to review"),
+			action: z.enum(["approve", "reject"]).describe("Action to take for all"),
+		},
+	},
+	async (args) => {
+		const result = await bulkReviewCrossLayer(
 			{
 				suggestionIds: args.suggestionIds,
 				action: args.action,

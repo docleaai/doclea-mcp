@@ -7,6 +7,11 @@ import type { VectorStore } from "@/vectors/interface";
 import { MemoryRelationStorage } from "@/database/memory-relations";
 import { RelationSuggestionStorage } from "@/database/relation-suggestions";
 import { createRelationDetector } from "@/relations";
+import { CodeGraphStorage } from "@/database/code-graph";
+import { CrossLayerRelationStorage } from "@/database/cross-layer-relations";
+import { CrossLayerSuggestionStorage } from "@/database/cross-layer-suggestions";
+import { CrossLayerDetector } from "@/relations/cross-layer-detector";
+import { LLMTagger } from "@/tagging";
 
 export const StoreMemoryInputSchema = z.object({
   type: MemoryTypeSchema,
@@ -20,6 +25,7 @@ export const StoreMemoryInputSchema = z.object({
     .default(0.5)
     .describe("Importance score 0-1"),
   tags: z.array(z.string()).default([]).describe("Tags for categorization"),
+  autoTag: z.boolean().default(false).describe("Auto-extract semantic tags via LLM"),
   relatedFiles: z.array(z.string()).default([]).describe("Related file paths"),
   gitCommit: z.string().optional().describe("Related git commit hash"),
   sourcePr: z.string().optional().describe("Source PR number/link"),
@@ -37,6 +43,36 @@ export async function storeMemory(
   const id = `mem_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const qdrantId = `vec_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
+  // Handle auto-tagging if enabled
+  let tags = input.tags || [];
+  if (input.autoTag) {
+    try {
+      const tagger = new LLMTagger();
+      const result = await tagger.extractTags({
+        title: input.title,
+        type: input.type,
+        content: input.content,
+      });
+
+      // Extract high-confidence tags (>= 0.7)
+      const extractedTags = result.tags
+        .filter((t) => t.confidence >= 0.7)
+        .map((t) => t.name);
+
+      // Merge and deduplicate (user-provided + extracted)
+      tags = [...new Set([...tags, ...extractedTags])];
+
+      if (extractedTags.length > 0) {
+        console.log(
+          `[doclea] Auto-tagged with ${extractedTags.length} tags: ${extractedTags.join(", ")}`,
+        );
+      }
+    } catch (error) {
+      // Graceful degradation - continue with user-provided tags only
+      console.warn("[doclea] Auto-tagging failed:", error);
+    }
+  }
+
   // Generate embedding from title + content
   const textToEmbed = `${input.title}\n\n${input.content}`;
   const vector = await embeddings.embed(textToEmbed);
@@ -46,7 +82,7 @@ export async function storeMemory(
     memoryId: id,
     type: input.type,
     title: input.title,
-    tags: input.tags,
+    tags,
     relatedFiles: input.relatedFiles,
     importance: input.importance,
   });
@@ -60,7 +96,7 @@ export async function storeMemory(
     content: input.content,
     summary: input.summary,
     importance: input.importance,
-    tags: input.tags,
+    tags,
     relatedFiles: input.relatedFiles,
     gitCommit: input.gitCommit,
     sourcePr: input.sourcePr,
@@ -70,6 +106,11 @@ export async function storeMemory(
   // Non-blocking relation detection (fire and forget)
   detectRelationsAsync(memory, db, vectors, embeddings).catch((err) =>
     console.error("[doclea] Relation detection failed:", err),
+  );
+
+  // Non-blocking cross-layer detection (memory → code)
+  detectCrossLayerAsync(memory, db).catch((err) =>
+    console.error("[doclea] Cross-layer detection failed:", err),
   );
 
   return memory;
@@ -107,5 +148,41 @@ async function detectRelationsAsync(
   } catch (error) {
     // Silently fail - relation detection is non-critical
     console.warn("[doclea] Relation detection error:", error);
+  }
+}
+
+/**
+ * Async helper for non-blocking cross-layer detection (memory → code)
+ */
+async function detectCrossLayerAsync(
+  memory: Memory,
+  db: SQLiteDatabase,
+): Promise<void> {
+  try {
+    const rawDb = db.getDatabase();
+    const codeGraph = new CodeGraphStorage(rawDb);
+    const relationStorage = new CrossLayerRelationStorage(rawDb);
+    const suggestionStorage = new CrossLayerSuggestionStorage(
+      rawDb,
+      relationStorage,
+    );
+
+    const detector = new CrossLayerDetector(
+      db,
+      codeGraph,
+      relationStorage,
+      suggestionStorage,
+    );
+
+    const result = await detector.detectForMemory(memory);
+
+    if (result.autoApproved.length > 0 || result.suggestions.length > 0) {
+      console.log(
+        `[doclea] Cross-layer detection for ${memory.id}: ${result.autoApproved.length} auto-approved, ${result.suggestions.length} suggestions`,
+      );
+    }
+  } catch (error) {
+    // Silently fail - cross-layer detection is non-critical
+    console.warn("[doclea] Cross-layer detection error:", error);
   }
 }

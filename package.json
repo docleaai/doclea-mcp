@@ -47,6 +47,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@huggingface/transformers": "^3.8.1",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "@qdrant/js-client-rest": "^1.16.2",
