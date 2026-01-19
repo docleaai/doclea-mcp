@@ -3,8 +3,8 @@
  * Phase 1: Core calculations and basic functionality
  */
 
-import { beforeEach, describe, expect, test } from "bun:test";
-import { ALICE, BOB, CHARLIE } from "../fixtures/authors";
+import { describe, expect, test } from "bun:test";
+import { ALICE } from "../fixtures/authors";
 import { REFERENCE_UNIX } from "../fixtures/timestamps";
 
 // We need to test the internal logic by extracting pure functions
@@ -288,8 +288,8 @@ describe("mapExpertise helper functions", () => {
 
       expect(Object.keys(groups)).toContain("src");
       expect(Object.keys(groups)).toContain("lib");
-      expect(groups["src"]).toHaveLength(2);
-      expect(groups["lib"]).toHaveLength(1);
+      expect(groups.src).toHaveLength(2);
+      expect(groups.lib).toHaveLength(1);
     });
 
     test("groups files at depth 2", () => {

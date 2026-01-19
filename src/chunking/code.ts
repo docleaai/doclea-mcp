@@ -9,7 +9,6 @@
  * - Source location tracking
  */
 
-import { join } from "node:path";
 import { countTokens } from "../utils";
 
 // Cached parser and language module
@@ -263,24 +262,27 @@ async function initTreeSitter(): Promise<typeof import("web-tree-sitter")> {
     return TreeSitterModule;
   }
 
-  const TreeSitter = await import("web-tree-sitter");
+  try {
+    console.log("[tree-sitter] Initializing...");
+    const TreeSitter = await import("web-tree-sitter");
 
-  // Find the WASM file path
-  const wasmPath = join(
-    process.cwd(),
-    "node_modules",
-    "web-tree-sitter",
-    "tree-sitter.wasm",
-  );
+    // Find the WASM file path using require.resolve for absolute path
+    const wasmPath = require.resolve("web-tree-sitter/tree-sitter.wasm");
+    console.log("[tree-sitter] WASM path:", wasmPath);
 
-  // Initialize Parser with WASM location
-  await TreeSitter.Parser.init({
-    locateFile: () => wasmPath,
-  });
+    // Initialize Parser with WASM location
+    await TreeSitter.Parser.init({
+      locateFile: () => wasmPath,
+    });
 
-  TreeSitterModule = TreeSitter;
-  parserInitialized = true;
-  return TreeSitter;
+    TreeSitterModule = TreeSitter;
+    parserInitialized = true;
+    console.log("[tree-sitter] Initialized successfully");
+    return TreeSitter;
+  } catch (error) {
+    console.error("[tree-sitter] Failed to initialize:", error);
+    throw error;
+  }
 }
 
 /**
@@ -291,14 +293,22 @@ async function loadLanguage(language: SupportedLanguage): Promise<unknown> {
     return languageCache.get(language);
   }
 
-  const TreeSitter = await initTreeSitter();
-  const config = LANGUAGE_CONFIGS[language];
+  try {
+    const TreeSitter = await initTreeSitter();
+    const config = LANGUAGE_CONFIGS[language];
 
-  const wasmPath = join(process.cwd(), "node_modules", config.wasmPath);
+    // Use require.resolve for absolute path to WASM file
+    const wasmPath = require.resolve(config.wasmPath);
+    console.log(`[tree-sitter] Loading language ${language} from ${wasmPath}`);
 
-  const lang = await TreeSitter.Language.load(wasmPath);
-  languageCache.set(language, lang);
-  return lang;
+    const lang = await TreeSitter.Language.load(wasmPath);
+    languageCache.set(language, lang);
+    console.log(`[tree-sitter] Language ${language} loaded successfully`);
+    return lang;
+  } catch (error) {
+    console.error(`[tree-sitter] Failed to load language ${language}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -332,7 +342,7 @@ export function getSupportedExtensions(): string[] {
  */
 function extractNodeName(
   node: TreeSitterNode,
-  language: SupportedLanguage,
+  _language: SupportedLanguage,
 ): string | null {
   // Common patterns for finding names
   const namePatterns = ["name", "identifier", "property_identifier"];
@@ -428,7 +438,7 @@ export async function chunkCode(
   // Build import block if needed
   let importBlock = "";
   if (includeImports && importNodes.length > 0) {
-    importBlock = importNodes.map((n) => n.text).join("\n") + "\n\n";
+    importBlock = `${importNodes.map((n) => n.text).join("\n")}\n\n`;
   }
 
   const chunks: CodeChunk[] = [];
@@ -523,8 +533,8 @@ async function splitLargeNode(
   // For classes, split by methods
   if (config.classNodes.includes(node.type)) {
     const methods: TreeSitterNode[] = [];
-    const otherContent: string[] = [];
-    const lastEnd = node.startIndex;
+    const _otherContent: string[] = [];
+    const _lastEnd = node.startIndex;
 
     // Find all method definitions within the class
     collectChildNodes(node, config.functionNodes, methods);
@@ -537,8 +547,8 @@ async function splitLargeNode(
       );
 
       for (const method of methods) {
-        const methodText = importBlock + classStart + method.text + "\n}";
-        const tokenCount = await countTokens(methodText, model);
+        const methodText = `${importBlock + classStart + method.text}\n}`;
+        const _tokenCount = await countTokens(methodText, model);
 
         chunks.push({
           content: method.text,
@@ -584,7 +594,7 @@ async function splitLargeNode(
           endLine: chunkStartLine + currentChunk.length - 1,
           startByte: 0, // Approximate
           endByte: 0,
-          nodeType: node.type + "_partial",
+          nodeType: `${node.type}_partial`,
           name: parentName,
           parentName: null,
           language,
@@ -613,7 +623,7 @@ async function splitLargeNode(
         endLine: chunkStartLine + currentChunk.length - 1,
         startByte: 0,
         endByte: 0,
-        nodeType: node.type + "_partial",
+        nodeType: `${node.type}_partial`,
         name: parentName,
         parentName: null,
         language,
@@ -670,7 +680,7 @@ export async function chunkCodeFile(
  */
 export async function chunkCodeFallback(
   code: string,
-  filename: string,
+  _filename: string,
   options: CodeChunkOptions = {},
 ): Promise<CodeChunk[]> {
   const { maxTokens = 512, model } = options;

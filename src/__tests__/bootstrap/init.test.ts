@@ -520,7 +520,7 @@ describe("initProject", () => {
     });
 
     test("truncates long summaries", () => {
-      const message = "fix: bug\n\n" + "a".repeat(300);
+      const message = `fix: bug\n\n${"a".repeat(300)}`;
       const summary = extractSummary(message);
       expect(summary?.length).toBe(200);
     });
@@ -790,7 +790,7 @@ describe("initProject", () => {
     });
 
     test("truncates long titles", () => {
-      const longTitle = "# " + "a".repeat(150);
+      const longTitle = `# ${"a".repeat(150)}`;
       expect(extractDocTitle(longTitle, "file.md").length).toBe(100);
     });
   });

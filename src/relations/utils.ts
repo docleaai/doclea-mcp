@@ -6,28 +6,148 @@
  * Common English stopwords to filter out
  */
 const STOPWORDS = new Set([
-	"the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-	"have", "has", "had", "do", "does", "did", "will", "would", "could",
-	"should", "may", "might", "must", "shall", "can", "need", "dare",
-	"ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
-	"from", "up", "about", "into", "over", "after", "beneath", "under",
-	"above", "and", "but", "or", "nor", "so", "yet", "both", "either",
-	"neither", "not", "only", "own", "same", "than", "too", "very",
-	"just", "also", "now", "here", "there", "when", "where", "why",
-	"how", "all", "each", "every", "both", "few", "more", "most",
-	"other", "some", "such", "no", "any", "this", "that", "these",
-	"those", "what", "which", "who", "whom", "whose", "it", "its",
-	"they", "them", "their", "we", "us", "our", "you", "your", "he",
-	"him", "his", "she", "her", "i", "me", "my",
+  "the",
+  "a",
+  "an",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "may",
+  "might",
+  "must",
+  "shall",
+  "can",
+  "need",
+  "dare",
+  "ought",
+  "used",
+  "to",
+  "of",
+  "in",
+  "for",
+  "on",
+  "with",
+  "at",
+  "by",
+  "from",
+  "up",
+  "about",
+  "into",
+  "over",
+  "after",
+  "beneath",
+  "under",
+  "above",
+  "and",
+  "but",
+  "or",
+  "nor",
+  "so",
+  "yet",
+  "both",
+  "either",
+  "neither",
+  "not",
+  "only",
+  "own",
+  "same",
+  "than",
+  "too",
+  "very",
+  "just",
+  "also",
+  "now",
+  "here",
+  "there",
+  "when",
+  "where",
+  "why",
+  "how",
+  "all",
+  "each",
+  "every",
+  "both",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "no",
+  "any",
+  "this",
+  "that",
+  "these",
+  "those",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "whose",
+  "it",
+  "its",
+  "they",
+  "them",
+  "their",
+  "we",
+  "us",
+  "our",
+  "you",
+  "your",
+  "he",
+  "him",
+  "his",
+  "she",
+  "her",
+  "i",
+  "me",
+  "my",
 ]);
 
 /**
  * Technical terms that should be preserved as keywords
  */
 const TECHNICAL_PREFIXES = [
-	"api", "http", "https", "sql", "json", "xml", "html", "css", "js",
-	"ts", "py", "go", "rust", "java", "cpp", "auth", "oauth", "jwt",
-	"db", "env", "config", "async", "sync", "crud", "rest", "graphql",
+  "api",
+  "http",
+  "https",
+  "sql",
+  "json",
+  "xml",
+  "html",
+  "css",
+  "js",
+  "ts",
+  "py",
+  "go",
+  "rust",
+  "java",
+  "cpp",
+  "auth",
+  "oauth",
+  "jwt",
+  "db",
+  "env",
+  "config",
+  "async",
+  "sync",
+  "crud",
+  "rest",
+  "graphql",
 ];
 
 /**
@@ -44,45 +164,45 @@ const TECHNICAL_PREFIXES = [
  * @param maxKeywords - Maximum number of keywords to return (default: 20)
  */
 export function extractKeywords(text: string, maxKeywords = 20): string[] {
-	if (!text || typeof text !== "string") {
-		return [];
-	}
+  if (!text || typeof text !== "string") {
+    return [];
+  }
 
-	// Normalize: lowercase and split on non-word characters
-	const words = text
-		.toLowerCase()
-		.replace(/[^\w\s-]/g, " ") // Replace punctuation with spaces
-		.split(/\s+/)
-		.filter((word) => word.length > 0);
+  // Normalize: lowercase and split on non-word characters
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ") // Replace punctuation with spaces
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
 
-	// Deduplicate and filter
-	const seen = new Set<string>();
-	const keywords: string[] = [];
+  // Deduplicate and filter
+  const seen = new Set<string>();
+  const keywords: string[] = [];
 
-	for (const word of words) {
-		// Skip if already seen
-		if (seen.has(word)) continue;
-		seen.add(word);
+  for (const word of words) {
+    // Skip if already seen
+    if (seen.has(word)) continue;
+    seen.add(word);
 
-		// Skip stopwords
-		if (STOPWORDS.has(word)) continue;
+    // Skip stopwords
+    if (STOPWORDS.has(word)) continue;
 
-		// Skip very short words (unless they're technical prefixes)
-		const isTechnical = TECHNICAL_PREFIXES.some(
-			(prefix) => word.startsWith(prefix) || word === prefix,
-		);
-		if (word.length < 3 && !isTechnical) continue;
+    // Skip very short words (unless they're technical prefixes)
+    const isTechnical = TECHNICAL_PREFIXES.some(
+      (prefix) => word.startsWith(prefix) || word === prefix,
+    );
+    if (word.length < 3 && !isTechnical) continue;
 
-		// Skip pure numbers
-		if (/^\d+$/.test(word)) continue;
+    // Skip pure numbers
+    if (/^\d+$/.test(word)) continue;
 
-		keywords.push(word);
+    keywords.push(word);
 
-		// Stop if we have enough
-		if (keywords.length >= maxKeywords) break;
-	}
+    // Stop if we have enough
+    if (keywords.length >= maxKeywords) break;
+  }
 
-	return keywords;
+  return keywords;
 }
 
 /**
@@ -95,22 +215,22 @@ export function extractKeywords(text: string, maxKeywords = 20): string[] {
  * @returns Similarity score between 0 and 1
  */
 export function calculateJaccardSimilarity(
-	set1: string[],
-	set2: string[],
+  set1: string[],
+  set2: string[],
 ): number {
-	if (set1.length === 0 && set2.length === 0) return 0;
-	if (set1.length === 0 || set2.length === 0) return 0;
+  if (set1.length === 0 && set2.length === 0) return 0;
+  if (set1.length === 0 || set2.length === 0) return 0;
 
-	const s1 = new Set(set1.map((s) => s.toLowerCase()));
-	const s2 = new Set(set2.map((s) => s.toLowerCase()));
+  const s1 = new Set(set1.map((s) => s.toLowerCase()));
+  const s2 = new Set(set2.map((s) => s.toLowerCase()));
 
-	// Calculate intersection
-	const intersection = [...s1].filter((x) => s2.has(x)).length;
+  // Calculate intersection
+  const intersection = [...s1].filter((x) => s2.has(x)).length;
 
-	// Calculate union
-	const union = new Set([...s1, ...s2]).size;
+  // Calculate union
+  const union = new Set([...s1, ...s2]).size;
 
-	return union > 0 ? intersection / union : 0;
+  return union > 0 ? intersection / union : 0;
 }
 
 /**
@@ -123,10 +243,10 @@ export function calculateJaccardSimilarity(
  * @returns Overlap score between 0 and 1
  */
 export function calculateOverlapScore(
-	keywords: string[],
-	targetTags: string[],
+  keywords: string[],
+  targetTags: string[],
 ): number {
-	return calculateJaccardSimilarity(keywords, targetTags);
+  return calculateJaccardSimilarity(keywords, targetTags);
 }
 
 /**
@@ -139,20 +259,20 @@ export function calculateOverlapScore(
  * @returns Overlap score between 0 and 1
  */
 export function calculateFileOverlapScore(
-	sourceFiles: string[],
-	targetFiles: string[],
+  sourceFiles: string[],
+  targetFiles: string[],
 ): number {
-	if (sourceFiles.length === 0 || targetFiles.length === 0) return 0;
+  if (sourceFiles.length === 0 || targetFiles.length === 0) return 0;
 
-	const sourceSet = new Set(sourceFiles);
-	const targetSet = new Set(targetFiles);
+  const sourceSet = new Set(sourceFiles);
+  const targetSet = new Set(targetFiles);
 
-	const intersection = [...sourceSet].filter((f) => targetSet.has(f)).length;
+  const intersection = [...sourceSet].filter((f) => targetSet.has(f)).length;
 
-	// Use the smaller set as the denominator for a more meaningful score
-	const minSize = Math.min(sourceSet.size, targetSet.size);
+  // Use the smaller set as the denominator for a more meaningful score
+  const minSize = Math.min(sourceSet.size, targetSet.size);
 
-	return minSize > 0 ? intersection / minSize : 0;
+  return minSize > 0 ? intersection / minSize : 0;
 }
 
 /**
@@ -163,11 +283,11 @@ export function calculateFileOverlapScore(
  * @returns Array of shared file paths
  */
 export function getSharedFiles(
-	sourceFiles: string[],
-	targetFiles: string[],
+  sourceFiles: string[],
+  targetFiles: string[],
 ): string[] {
-	const sourceSet = new Set(sourceFiles);
-	return targetFiles.filter((f) => sourceSet.has(f));
+  const sourceSet = new Set(sourceFiles);
+  return targetFiles.filter((f) => sourceSet.has(f));
 }
 
 /**
@@ -181,15 +301,15 @@ export function getSharedFiles(
  * @returns Score between 0 and 1
  */
 export function calculateTemporalScore(
-	timestamp1: number,
-	timestamp2: number,
-	windowDays = 7,
+  timestamp1: number,
+  timestamp2: number,
+  windowDays = 7,
 ): number {
-	const diffMs = Math.abs(timestamp1 - timestamp2) * 1000;
-	const windowMs = windowDays * 24 * 60 * 60 * 1000;
+  const diffMs = Math.abs(timestamp1 - timestamp2) * 1000;
+  const windowMs = windowDays * 24 * 60 * 60 * 1000;
 
-	if (diffMs >= windowMs) return 0;
+  if (diffMs >= windowMs) return 0;
 
-	// Linear decay: closer = higher score
-	return 1 - diffMs / windowMs;
+  // Linear decay: closer = higher score
+  return 1 - diffMs / windowMs;
 }

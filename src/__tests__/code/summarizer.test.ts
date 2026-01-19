@@ -582,7 +582,7 @@ describe("getUnsummarized", () => {
 
   it("should return empty when no nodes need summaries", async () => {
     // Update all nodes to have high confidence
-    const now = Math.floor(Date.now() / 1000);
+    const _now = Math.floor(Date.now() / 1000);
     db.run(
       `UPDATE code_nodes SET summary = 'Good summary', metadata = ? WHERE summary IS NULL OR summary = ''`,
       [JSON.stringify({ summaryGeneratedBy: "ai", summaryConfidence: 0.95 })],

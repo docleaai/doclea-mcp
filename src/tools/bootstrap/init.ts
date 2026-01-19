@@ -9,8 +9,8 @@ import {
 import { join, relative } from "node:path";
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import { storeMemory } from "@/tools/memory";
 import type { MemoryType } from "@/types";
 import { DEFAULT_CONFIG } from "@/types";

@@ -308,7 +308,7 @@ describe("QdrantVectorStore", () => {
     test("builds single type filter", () => {
       const result = buildFilter({ type: "note" });
       expect(result).toHaveLength(1);
-      expect(result![0].key).toBe("type");
+      expect(result?.[0].key).toBe("type");
     });
 
     test("builds combined filters", () => {
@@ -333,7 +333,7 @@ describe("QdrantVectorStore", () => {
     test("includes minImportance of 0", () => {
       const result = buildFilter({ minImportance: 0 });
       expect(result).toHaveLength(1);
-      expect((result![0].range as Record<string, unknown>).gte).toBe(0);
+      expect((result?.[0].range as Record<string, unknown>).gte).toBe(0);
     });
   });
 
@@ -522,21 +522,21 @@ describe("QdrantVectorStore", () => {
       const indexes = getRequiredIndexes();
       const typeIndex = indexes.find((i) => i.field_name === "type");
       expect(typeIndex).toBeDefined();
-      expect(typeIndex!.field_schema).toBe("keyword");
+      expect(typeIndex?.field_schema).toBe("keyword");
     });
 
     test("includes tags index", () => {
       const indexes = getRequiredIndexes();
       const tagsIndex = indexes.find((i) => i.field_name === "tags");
       expect(tagsIndex).toBeDefined();
-      expect(tagsIndex!.field_schema).toBe("keyword");
+      expect(tagsIndex?.field_schema).toBe("keyword");
     });
 
     test("includes importance index", () => {
       const indexes = getRequiredIndexes();
       const impIndex = indexes.find((i) => i.field_name === "importance");
       expect(impIndex).toBeDefined();
-      expect(impIndex!.field_schema).toBe("float");
+      expect(impIndex?.field_schema).toBe("float");
     });
 
     test("returns 3 indexes", () => {
@@ -698,7 +698,7 @@ describe("QdrantVectorStore", () => {
     function isValidVector(vector: unknown): vector is number[] {
       if (!Array.isArray(vector)) return false;
       if (vector.length !== VECTOR_SIZE) return false;
-      return vector.every((n) => typeof n === "number" && !isNaN(n));
+      return vector.every((n) => typeof n === "number" && !Number.isNaN(n));
     }
 
     test("validates correct dimension", () => {

@@ -13,14 +13,16 @@ services:
     restart: unless-stopped
 
   embeddings:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    command: --model-id nomic-ai/nomic-embed-text-v1.5 --port 80
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    command: --model-id BAAI/bge-base-en-v1.5 --port 80
     ports:
       - "8080:80"
     volumes:
       - embeddings_cache:/data
     environment:
       - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+      - HF_HUB_ENABLE_HF_TRANSFER=0
+      - HF_ENDPOINT=https://huggingface.co
     restart: unless-stopped
 
 volumes:

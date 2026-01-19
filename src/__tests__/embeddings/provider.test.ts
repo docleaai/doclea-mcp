@@ -411,7 +411,7 @@ describe("embedding providers", () => {
     function isValidEmbedding(embedding: unknown): embedding is number[] {
       if (!Array.isArray(embedding)) return false;
       if (embedding.length === 0) return false;
-      return embedding.every((n) => typeof n === "number" && !isNaN(n));
+      return embedding.every((n) => typeof n === "number" && !Number.isNaN(n));
     }
 
     test("validates valid embedding", () => {

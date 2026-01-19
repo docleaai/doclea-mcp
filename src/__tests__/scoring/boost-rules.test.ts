@@ -19,6 +19,7 @@ function createTestMemory(overrides: Partial<Memory> = {}): Memory {
     createdAt: now - 7 * SECONDS_PER_DAY,
     accessedAt: now - 1 * SECONDS_PER_DAY,
     accessCount: 10,
+    needsReview: false,
     ...overrides,
   };
 }

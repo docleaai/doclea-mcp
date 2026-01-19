@@ -19,7 +19,7 @@ export interface VectorSearchResult {
 
 /**
  * Abstract interface for vector storage backends.
- * Implementations: QdrantVectorStore (Docker), SqliteVecStore (embedded)
+ * Implementations: QdrantVectorStore (Docker), LibSqlVectorStore (embedded)
  */
 export interface VectorStore {
   /**

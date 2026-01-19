@@ -1,7 +1,7 @@
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import type {
   Memory,
   ReviewerSuggestion,
@@ -122,7 +122,7 @@ export async function generatePRDescription(
 async function findRelatedMemories(
   files: string[],
   commits: string[],
-  diff: string,
+  _diff: string,
   storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,
@@ -475,7 +475,7 @@ function generateSummary(commits: string[], filesChanged: string[]): string {
     return `This PR includes ${commits.length} commit(s) affecting ${filesChanged.length} file(s).`;
   }
 
-  return parts.join(". ") + ".";
+  return `${parts.join(". ")}.`;
 }
 
 function groupFilesByDirectory(files: string[]): Record<string, string[]> {

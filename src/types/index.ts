@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ABTestingConfigSchema } from "@/ab-testing/types";
+import { ContextCacheConfigSchema } from "@/caching/types";
 import { ScoringConfigSchema } from "@/scoring/types";
 
 // Memory types
@@ -10,6 +12,15 @@ export const MemoryTypeSchema = z.enum([
   "note",
 ]);
 export type MemoryType = z.infer<typeof MemoryTypeSchema>;
+
+/** Decay function types for per-memory override */
+export const DecayFunctionTypeSchema = z.enum([
+  "exponential",
+  "linear",
+  "step",
+  "none",
+]);
+export type DecayFunctionType = z.infer<typeof DecayFunctionTypeSchema>;
 
 export const MemorySchema = z.object({
   id: z.string(),
@@ -27,6 +38,16 @@ export const MemorySchema = z.object({
   createdAt: z.number(),
   accessedAt: z.number(),
   accessCount: z.number().int().min(0).default(0),
+  needsReview: z.boolean().default(false),
+  // Confidence decay fields (all optional, NULL = use global config)
+  /** Per-memory decay rate multiplier (NULL = global, 0 = pinned/no decay) */
+  decayRate: z.number().min(0).nullable().optional(),
+  /** Decay anchor timestamp (NULL = use createdAt or accessedAt based on config) */
+  lastRefreshedAt: z.number().nullable().optional(),
+  /** Per-memory confidence floor (NULL = global floor) */
+  confidenceFloor: z.number().min(0).max(1).nullable().optional(),
+  /** Per-memory decay function override */
+  decayFunction: DecayFunctionTypeSchema.nullable().optional(),
 });
 export type Memory = z.infer<typeof MemorySchema>;
 
@@ -114,21 +135,24 @@ export const EmbeddingConfigSchema = z.discriminatedUnion("provider", [
 export type EmbeddingConfig = z.infer<typeof EmbeddingConfigSchema>;
 
 // Vector store providers - discriminated union
-export const SqliteVecConfigSchema = z.object({
-  provider: z.literal("sqlite-vec"),
+export const LibSqlConfigSchema = z.object({
+  provider: z.literal("libsql"),
   dbPath: z.string().default(".doclea/vectors.db"),
   vectorSize: z.number().default(384), // all-MiniLM-L6-v2 dimension
 });
+
+// Legacy alias for backwards compatibility
+export const SqliteVecConfigSchema = LibSqlConfigSchema;
 
 export const QdrantConfigSchema = z.object({
   provider: z.literal("qdrant"),
   url: z.string(),
   apiKey: z.string().optional(),
-  collectionName: z.string(),
+  collectionName: z.string().default("doclea_vectors"),
 });
 
 export const VectorConfigSchema = z.discriminatedUnion("provider", [
-  SqliteVecConfigSchema,
+  LibSqlConfigSchema,
   QdrantConfigSchema,
 ]);
 export type VectorConfig = z.infer<typeof VectorConfigSchema>;
@@ -155,6 +179,8 @@ export const ConfigSchema = z.object({
   vector: VectorConfigSchema,
   storage: StorageConfigSchema,
   scoring: ScoringConfigSchema.optional(),
+  cache: ContextCacheConfigSchema.optional(),
+  abTesting: ABTestingConfigSchema.optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -162,7 +188,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export const DEFAULT_CONFIG: Config = {
   embedding: { provider: "transformers", model: "mxbai-embed-xsmall-v1" },
   vector: {
-    provider: "sqlite-vec",
+    provider: "libsql",
     dbPath: ".doclea/vectors.db",
     vectorSize: 384,
   },

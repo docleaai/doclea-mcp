@@ -1,45 +1,41 @@
-import { z } from "zod";
 import type { Database } from "bun:sqlite";
-import type { SummaryStats, SummaryStrategy } from "./types";
-import { CodeSummarizer } from "./summarizer";
-import { chunkCodeFile } from "../../chunking/code";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import { readdirSync, statSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
+import { chunkCodeFile } from "../../chunking/code";
+import { CodeSummarizer } from "./summarizer";
+import type { SummaryStats, SummaryStrategy } from "./types";
 
 export const SummarizeCodeInputSchema = z.object({
-	filePath: z.string().optional().describe("Specific file to process"),
-	directory: z
-		.string()
-		.optional()
-		.describe("Directory to scan for code files"),
-	patterns: z
-		.array(z.string())
-		.optional()
-		.describe("Glob patterns for files (e.g., ['**/*.ts', '**/*.js'])"),
-	strategy: z
-		.enum(["heuristic", "hybrid"])
-		.default("hybrid")
-		.describe("Summary generation strategy"),
-	forceRegenerate: z
-		.boolean()
-		.default(false)
-		.describe("Regenerate existing summaries"),
-	preferAiForExported: z
-		.boolean()
-		.default(true)
-		.describe("Flag exported/public APIs for AI summarization"),
+  filePath: z.string().optional().describe("Specific file to process"),
+  directory: z.string().optional().describe("Directory to scan for code files"),
+  patterns: z
+    .array(z.string())
+    .optional()
+    .describe("Glob patterns for files (e.g., ['**/*.ts', '**/*.js'])"),
+  strategy: z
+    .enum(["heuristic", "hybrid"])
+    .default("hybrid")
+    .describe("Summary generation strategy"),
+  forceRegenerate: z
+    .boolean()
+    .default(false)
+    .describe("Regenerate existing summaries"),
+  preferAiForExported: z
+    .boolean()
+    .default(true)
+    .describe("Flag exported/public APIs for AI summarization"),
 });
 
 export type SummarizeCodeInput = z.infer<typeof SummarizeCodeInputSchema>;
 
 interface NodeNeedingAi {
-	nodeId: string;
-	name: string;
-	type: string;
-	filePath: string;
-	code: string;
+  nodeId: string;
+  name: string;
+  type: string;
+  filePath: string;
+  code: string;
 }
 
 /**
@@ -53,111 +49,108 @@ interface NodeNeedingAi {
  * The host LLM can then generate summaries and call batch_update_summaries
  */
 export async function summarizeCode(
-	input: SummarizeCodeInput,
-	db: Database,
+  input: SummarizeCodeInput,
+  db: Database,
 ): Promise<{
-	stats: SummaryStats;
-	needsAiSummary: NodeNeedingAi[];
-	message: string;
+  stats: SummaryStats;
+  needsAiSummary: NodeNeedingAi[];
+  message: string;
 }> {
-	const summarizer = new CodeSummarizer({
-		enabled: true,
-		strategy: input.strategy as SummaryStrategy,
-		preferAiForExported: input.preferAiForExported,
-		minConfidenceThreshold: 0.6,
-	});
+  const summarizer = new CodeSummarizer({
+    enabled: true,
+    strategy: input.strategy as SummaryStrategy,
+    preferAiForExported: input.preferAiForExported,
+    minConfidenceThreshold: 0.6,
+  });
 
-	const stats: SummaryStats = {
-		totalNodes: 0,
-		summarized: 0,
-		needsAiSummary: 0,
-		bySource: {},
-	};
+  const stats: SummaryStats = {
+    totalNodes: 0,
+    summarized: 0,
+    needsAiSummary: 0,
+    bySource: {},
+  };
 
-	const needsAiSummary: NodeNeedingAi[] = [];
+  const needsAiSummary: NodeNeedingAi[] = [];
 
-	// Determine files to process
-	let files: string[] = [];
+  // Determine files to process
+  let files: string[] = [];
 
-	if (input.filePath) {
-		files = [input.filePath];
-	} else if (input.directory || input.patterns) {
-		const baseDir = input.directory || process.cwd();
-		const patterns = input.patterns || [
-			"**/*.ts",
-			"**/*.tsx",
-			"**/*.js",
-			"**/*.jsx",
-			"**/*.py",
-			"**/*.go",
-			"**/*.rs",
-		];
-		const exclude = ["**/node_modules/**", "**/dist/**", "**/.git/**"];
+  if (input.filePath) {
+    files = [input.filePath];
+  } else if (input.directory || input.patterns) {
+    const baseDir = input.directory || process.cwd();
+    const patterns = input.patterns || [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.py",
+      "**/*.go",
+      "**/*.rs",
+    ];
+    const exclude = ["**/node_modules/**", "**/dist/**", "**/.git/**"];
 
-		files = discoverFiles(baseDir, patterns, exclude);
-	} else {
-		return {
-			stats,
-			needsAiSummary,
-			message: "Must provide filePath, directory, or patterns",
-		};
-	}
+    files = discoverFiles(baseDir, patterns, exclude);
+  } else {
+    return {
+      stats,
+      needsAiSummary,
+      message: "Must provide filePath, directory, or patterns",
+    };
+  }
 
-	const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(Date.now() / 1000);
 
-	// Process each file
-	for (const filePath of files) {
-		try {
-			const content = await fs.readFile(filePath, "utf-8");
-			const chunks = await chunkCodeFile(content, filePath);
+  // Process each file
+  for (const filePath of files) {
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      const chunks = await chunkCodeFile(content, filePath);
 
-			for (const chunk of chunks) {
-				// Skip imports and non-code chunks
-				if (
-					chunk.metadata.isImport ||
-					(!chunk.metadata.isFunction && !chunk.metadata.isClass)
-				) {
-					continue;
-				}
+      for (const chunk of chunks) {
+        // Skip imports and non-code chunks
+        if (
+          chunk.metadata.isImport ||
+          (!chunk.metadata.isFunction && !chunk.metadata.isClass)
+        ) {
+          continue;
+        }
 
-				stats.totalNodes++;
+        stats.totalNodes++;
 
-				// Check if node already has summary (unless forcing regenerate)
-				if (!input.forceRegenerate) {
-					const nodeId = `${filePath}:${chunk.metadata.isClass ? "class" : "function"}:${chunk.metadata.name || "anonymous"}`;
-					const existing = db
-						.query(
-							"SELECT summary, metadata FROM code_nodes WHERE id = ?",
-						)
-						.get(nodeId) as any;
+        // Check if node already has summary (unless forcing regenerate)
+        if (!input.forceRegenerate) {
+          const nodeId = `${filePath}:${chunk.metadata.isClass ? "class" : "function"}:${chunk.metadata.name || "anonymous"}`;
+          const existing = db
+            .query("SELECT summary, metadata FROM code_nodes WHERE id = ?")
+            .get(nodeId) as any;
 
-					if (existing?.summary) {
-						const metadata = JSON.parse(existing.metadata || "{}");
-						if (
-							metadata.summaryGeneratedBy === "ai" ||
-							metadata.summaryConfidence >= 0.8
-						) {
-							stats.summarized++;
-							stats.bySource[metadata.summaryGeneratedBy || "existing"] =
-								(stats.bySource[
-									metadata.summaryGeneratedBy || "existing"
-								] || 0) + 1;
-							continue;
-						}
-					}
-				}
+          if (existing?.summary) {
+            const metadata = JSON.parse(existing.metadata || "{}");
+            if (
+              metadata.summaryGeneratedBy === "ai" ||
+              metadata.summaryConfidence >= 0.8
+            ) {
+              stats.summarized++;
+              stats.bySource[metadata.summaryGeneratedBy || "existing"] =
+                (stats.bySource[metadata.summaryGeneratedBy || "existing"] ||
+                  0) + 1;
+              continue;
+            }
+          }
+        }
 
-				// Generate summary
-				const summary = await summarizer.summarize(chunk);
-				stats.summarized++;
-				stats.bySource[summary.generatedBy] =
-					(stats.bySource[summary.generatedBy] || 0) + 1;
+        // Generate summary
+        const summary = await summarizer.summarize(chunk);
+        stats.summarized++;
+        stats.bySource[summary.generatedBy] =
+          (stats.bySource[summary.generatedBy] || 0) + 1;
 
-				// Update database
-				const nodeId = `${filePath}:${chunk.metadata.isClass ? "class" : "function"}:${chunk.metadata.name || "anonymous"}`;
+        // Update database
+        const nodeId = `${filePath}:${chunk.metadata.isClass ? "class" : "function"}:${chunk.metadata.name || "anonymous"}`;
 
-				db.query(
-					`
+        db.query(
+          `
 					UPDATE code_nodes
 					SET
 						summary = ?,
@@ -171,112 +164,109 @@ export async function summarizeCode(
 						updated_at = ?
 					WHERE id = ?
 				`,
-				).run(
-					summary.summary,
-					summary.generatedBy,
-					summary.confidence,
-					summary.needsAiSummary ? 1 : 0,
-					now,
-					nodeId,
-				);
+        ).run(
+          summary.summary,
+          summary.generatedBy,
+          summary.confidence,
+          summary.needsAiSummary ? 1 : 0,
+          now,
+          nodeId,
+        );
 
-				// Track nodes needing AI
-				if (summary.needsAiSummary) {
-					stats.needsAiSummary++;
-					needsAiSummary.push({
-						nodeId,
-						name: chunk.metadata.name || "anonymous",
-						type: chunk.metadata.isClass ? "class" : "function",
-						filePath,
-						code: chunk.content,
-					});
-				}
-			}
-		} catch (error) {
-			console.warn(`Failed to process ${filePath}:`, error);
-		}
-	}
+        // Track nodes needing AI
+        if (summary.needsAiSummary) {
+          stats.needsAiSummary++;
+          needsAiSummary.push({
+            nodeId,
+            name: chunk.metadata.name || "anonymous",
+            type: chunk.metadata.isClass ? "class" : "function",
+            filePath,
+            code: chunk.content,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to process ${filePath}:`, error);
+    }
+  }
 
-	// Build message
-	let message = `Processed ${stats.totalNodes} code units from ${files.length} file(s). `;
-	message += `Summarized: ${stats.summarized}. `;
+  // Build message
+  let message = `Processed ${stats.totalNodes} code units from ${files.length} file(s). `;
+  message += `Summarized: ${stats.summarized}. `;
 
-	if (stats.needsAiSummary > 0) {
-		message += `${stats.needsAiSummary} node(s) need AI summaries.`;
-	} else {
-		message += "All nodes have adequate summaries.";
-	}
+  if (stats.needsAiSummary > 0) {
+    message += `${stats.needsAiSummary} node(s) need AI summaries.`;
+  } else {
+    message += "All nodes have adequate summaries.";
+  }
 
-	return { stats, needsAiSummary, message };
+  return { stats, needsAiSummary, message };
 }
 
 function discoverFiles(
-	rootDir: string,
-	patterns: string[],
-	exclude: string[],
+  rootDir: string,
+  patterns: string[],
+  exclude: string[],
 ): string[] {
-	const files: string[] = [];
+  const files: string[] = [];
 
-	function walk(dir: string, depth: number = 0): void {
-		if (depth > 10) return; // Prevent infinite recursion
+  function walk(dir: string, depth: number = 0): void {
+    if (depth > 10) return; // Prevent infinite recursion
 
-		try {
-			const entries = readdirSync(dir);
+    try {
+      const entries = readdirSync(dir);
 
-			for (const entry of entries) {
-				const fullPath = join(dir, entry);
-				const relativePath = fullPath.substring(rootDir.length + 1);
+      for (const entry of entries) {
+        const fullPath = join(dir, entry);
+        const relativePath = fullPath.substring(rootDir.length + 1);
 
-				// Check exclusions
-				if (shouldExclude(relativePath, exclude)) continue;
+        // Check exclusions
+        if (shouldExclude(relativePath, exclude)) continue;
 
-				try {
-					const stat = statSync(fullPath);
+        try {
+          const stat = statSync(fullPath);
 
-					if (stat.isDirectory()) {
-						walk(fullPath, depth + 1);
-					} else if (stat.isFile()) {
-						if (matchesPattern(relativePath, patterns)) {
-							files.push(fullPath);
-						}
-					}
-				} catch {
-					// Skip files we can't stat
-					continue;
-				}
-			}
-		} catch {
-			// Skip directories we can't read
-		}
-	}
+          if (stat.isDirectory()) {
+            walk(fullPath, depth + 1);
+          } else if (stat.isFile()) {
+            if (matchesPattern(relativePath, patterns)) {
+              files.push(fullPath);
+            }
+          }
+        } catch {}
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
 
-	walk(rootDir);
-	return files;
+  walk(rootDir);
+  return files;
 }
 
 function shouldExclude(path: string, exclude: string[]): boolean {
-	for (const pattern of exclude) {
-		const regex = patternToRegex(pattern);
-		if (regex.test(path)) return true;
-	}
-	return false;
+  for (const pattern of exclude) {
+    const regex = patternToRegex(pattern);
+    if (regex.test(path)) return true;
+  }
+  return false;
 }
 
 function matchesPattern(path: string, patterns: string[]): boolean {
-	for (const pattern of patterns) {
-		const regex = patternToRegex(pattern);
-		if (regex.test(path)) return true;
-	}
-	return false;
+  for (const pattern of patterns) {
+    const regex = patternToRegex(pattern);
+    if (regex.test(path)) return true;
+  }
+  return false;
 }
 
 function patternToRegex(pattern: string): RegExp {
-	// Simple glob to regex conversion
-	const escaped = pattern
-		.replace(/\./g, "\\.")
-		.replace(/\*\*/g, ".*")
-		.replace(/\*/g, "[^/]*")
-		.replace(/\{([^}]+)\}/g, "($1)")
-		.replace(/,/g, "|");
-	return new RegExp(`^${escaped}$`);
+  // Simple glob to regex conversion
+  const escaped = pattern
+    .replace(/\./g, "\\.")
+    .replace(/\*\*/g, ".*")
+    .replace(/\*/g, "[^/]*")
+    .replace(/\{([^}]+)\}/g, "($1)")
+    .replace(/,/g, "|");
+  return new RegExp(`^${escaped}$`);
 }

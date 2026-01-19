@@ -82,7 +82,7 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
   const sections: MarkdownSection[] = [];
 
   let currentSection: MarkdownSection | null = null;
-  let headerStack: { level: number; text: string }[] = [];
+  const headerStack: { level: number; text: string }[] = [];
   let inCodeBlock = false;
   let inFrontmatter = false;
   let frontmatterDone = false;
@@ -111,7 +111,7 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
 
     if (inFrontmatter) {
       if (currentSection) {
-        currentSection.content += "\n" + line;
+        currentSection.content += `\n${line}`;
         currentSection.endLine = lineNum;
       }
       if (line === "---") {
@@ -136,7 +136,7 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
 
     if (headerMatch) {
       // Save previous section
-      if (currentSection && currentSection.content.trim()) {
+      if (currentSection?.content.trim()) {
         sections.push(currentSection);
       }
 
@@ -144,7 +144,10 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
       const headerText = headerMatch[2].trim();
 
       // Update header stack
-      while (headerStack.length > 0 && headerStack[headerStack.length - 1].level >= level) {
+      while (
+        headerStack.length > 0 &&
+        headerStack[headerStack.length - 1].level >= level
+      ) {
         headerStack.pop();
       }
       headerStack.push({ level, text: headerText });
@@ -174,7 +177,7 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
           hasCodeBlock: inCodeBlock,
         };
       } else {
-        currentSection.content += "\n" + line;
+        currentSection.content += `\n${line}`;
         currentSection.endLine = lineNum;
         if (inCodeBlock) {
           currentSection.hasCodeBlock = true;
@@ -184,7 +187,7 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
   }
 
   // Don't forget the last section
-  if (currentSection && currentSection.content.trim()) {
+  if (currentSection?.content.trim()) {
     sections.push(currentSection);
   }
 
@@ -323,7 +326,10 @@ async function splitLargeSection(
         });
       }
       currentStartLine = lineNum + 1;
-    } else if (currentTokens + lineTokens > maxTokens && currentChunk.length > 0) {
+    } else if (
+      currentTokens + lineTokens > maxTokens &&
+      currentChunk.length > 0
+    ) {
       // Flush current chunk
       result.push({
         content: currentChunk.join("\n"),
@@ -421,7 +427,7 @@ export async function chunkMarkdown(
 
     // Optionally prepend header context
     if (includeHeaderContext && section.headers.length > 0 && !section.header) {
-      const contextHeader = section.headers
+      const _contextHeader = section.headers
         .map((h, i) => `${"#".repeat(i + 1)} ${h}`)
         .join("\n");
       // Only add if it doesn't duplicate existing headers in content
@@ -496,7 +502,10 @@ export function extractFrontmatter(markdown: string): {
  * @param lineNumber - The line number (1-based)
  * @returns Array of headers leading to that line
  */
-export function getHeadersAtLine(markdown: string, lineNumber: number): string[] {
+export function getHeadersAtLine(
+  markdown: string,
+  lineNumber: number,
+): string[] {
   const lines = markdown.split("\n");
   const headerStack: { level: number; text: string }[] = [];
   let inCodeBlock = false;
@@ -521,7 +530,10 @@ export function getHeadersAtLine(markdown: string, lineNumber: number): string[]
         const text = headerMatch[2].trim();
 
         // Pop headers of same or higher level
-        while (headerStack.length > 0 && headerStack[headerStack.length - 1].level >= level) {
+        while (
+          headerStack.length > 0 &&
+          headerStack[headerStack.length - 1].level >= level
+        ) {
           headerStack.pop();
         }
         headerStack.push({ level, text });

@@ -50,7 +50,7 @@ export interface ExpertiseResult {
 // Constants for analysis
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 const THREE_MONTHS_MS = 3 * 30 * 24 * 60 * 60 * 1000;
-const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+const _ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function mapExpertise(
   input: ExpertiseInput,
@@ -180,7 +180,7 @@ async function analyzeDirectory(
   >();
 
   let latestActivity = 0;
-  let totalCommitsInDir = 0;
+  let _totalCommitsInDir = 0;
 
   // Use git log for the entire directory instead of per-file for efficiency
   try {
@@ -205,7 +205,7 @@ async function analyzeDirectory(
         const [, name, email, timeStr] = authorMatch;
         const time = parseInt(timeStr, 10) * 1000;
         currentAuthor = { name, email, time };
-        totalCommitsInDir++;
+        _totalCommitsInDir++;
 
         if (time > latestActivity) {
           latestActivity = time;

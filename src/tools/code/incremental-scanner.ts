@@ -1,10 +1,9 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import type { CodeChunk } from "../../chunking/code";
 import { chunkCode } from "../../chunking/code";
 import type { CodeGraphStorage } from "../../database/code-graph";
 import type { EmbeddingClient } from "../../embeddings/provider";
-import type { VectorPayload, VectorStore } from "../../vectors/interface";
+import type { VectorStore } from "../../vectors/interface";
 import type { ChangeDetector } from "./change-detector";
 import { GraphExtractor } from "./graph-extractor";
 import type { CodeSummarizer } from "./summarizer";
@@ -38,7 +37,7 @@ export class IncrementalScanner {
    */
   async scanIncremental(
     files: Array<{ path: string; content: string }>,
-    options: ScanOptions = {},
+    _options: ScanOptions = {},
   ): Promise<IncrementalScanResult> {
     // 1. Detect changes
     const changes = await this.changeDetector.detectChanges(files);
@@ -74,11 +73,93 @@ export class IncrementalScanner {
       await this.processDeletedFile(change, stats);
     }
 
-    // 4. Update hashes
+    // 4. Flush remaining embeddings
+    if (this.pendingEmbeddings.length > 0) {
+      await this.flushEmbeddings(stats);
+    }
+
+    // 5. Update hashes
     await this.changeDetector.updateHashes(changes);
 
     return { changes, stats };
   }
+
+  /**
+   * Flush pending embeddings in a batch
+   */
+  private async flushEmbeddings(stats: ScanStats): Promise<void> {
+    if (
+      !this.vectorStore ||
+      !this.embeddings ||
+      this.pendingEmbeddings.length === 0
+    ) {
+      return;
+    }
+
+    console.log(
+      `[scan] Flushing ${this.pendingEmbeddings.length} embeddings in batch`,
+    );
+
+    try {
+      // Generate embedding texts
+      const embeddingTexts = this.pendingEmbeddings.map(({ node, chunk }) => {
+        const codeSnippet = chunk.content.slice(0, 500);
+        return [
+          node.name,
+          node.signature || "",
+          node.summary || "",
+          codeSnippet,
+        ]
+          .filter(Boolean)
+          .join("\n");
+      });
+
+      // Batch embed
+      const vectors = await this.embeddings.embedBatch(embeddingTexts);
+
+      // Upsert all vectors
+      for (let i = 0; i < this.pendingEmbeddings.length; i++) {
+        const { node, chunk, filePath } = this.pendingEmbeddings[i];
+        const vector = vectors[i];
+
+        const payload = {
+          memoryId: node.id,
+          type: node.type,
+          title: node.name,
+          tags: [
+            chunk.metadata.language,
+            ...(node.metadata?.isExported ? ["exported"] : []),
+          ],
+          relatedFiles: [filePath],
+          importance:
+            node.type === "function" || node.type === "class" ? 0.7 : 0.5,
+          signature: node.signature,
+          startLine: node.startLine,
+          endLine: node.endLine,
+        };
+
+        const vectorId = this.generateVectorId(filePath, node.name);
+        await this.vectorStore.upsert(vectorId, vector, payload);
+        stats.embeddingsRegenerated++;
+      }
+
+      // Clear pending
+      this.pendingEmbeddings = [];
+    } catch (error) {
+      console.warn("[scan] Failed to flush embeddings:", error);
+      // Clear pending to prevent infinite retry
+      this.pendingEmbeddings = [];
+    }
+  }
+
+  // Pending embeddings for batch processing
+  private pendingEmbeddings: Array<{
+    node: CodeNode;
+    chunk: CodeChunk;
+    filePath: string;
+  }> = [];
+
+  private static readonly EMBEDDING_BATCH_SIZE = 32;
 
   /**
    * Process a newly added file
@@ -129,39 +210,41 @@ export class IncrementalScanner {
         await this.codeGraph.upsertNode(node);
         stats.nodesAdded++;
 
-        // RAG: Create embedding for function/class nodes
+        // RAG: Queue embedding for batch processing
         if (
           this.vectorStore &&
           this.embeddings &&
           (node.type === "function" || node.type === "class")
         ) {
-          try {
-            // Find the corresponding chunk for this node (match by name, fallback to first matching type)
-            const chunk =
-              chunks.find(
-                (c) =>
-                  c.metadata.name === node.name ||
-                  (c.metadata.isFunction &&
-                    node.type === "function" &&
-                    c.metadata.name === node.name) ||
-                  (c.metadata.isClass &&
-                    node.type === "class" &&
-                    c.metadata.name === node.name),
-              ) ||
-              chunks.find(
-                (c) =>
-                  (c.metadata.isFunction && node.type === "function") ||
-                  (c.metadata.isClass && node.type === "class"),
-              );
-            if (chunk) {
-              await this.createCodeEmbedding(node, chunk, file.path);
-              stats.documentsUpdated++;
-              stats.embeddingsRegenerated++;
-            }
-          } catch (error) {
-            console.warn(`Failed to create embedding for ${node.name}:`, error);
+          // Find the corresponding chunk for this node
+          const chunk =
+            chunks.find(
+              (c) =>
+                c.metadata.name === node.name ||
+                (c.metadata.isFunction &&
+                  node.type === "function" &&
+                  c.metadata.name === node.name) ||
+                (c.metadata.isClass &&
+                  node.type === "class" &&
+                  c.metadata.name === node.name),
+            ) ||
+            chunks.find(
+              (c) =>
+                (c.metadata.isFunction && node.type === "function") ||
+                (c.metadata.isClass && node.type === "class"),
+            );
+          if (chunk) {
+            this.pendingEmbeddings.push({ node, chunk, filePath: file.path });
+            stats.documentsUpdated++;
           }
         }
+      }
+
+      // Flush embeddings if batch is full
+      if (
+        this.pendingEmbeddings.length >= IncrementalScanner.EMBEDDING_BATCH_SIZE
+      ) {
+        await this.flushEmbeddings(stats);
       }
 
       // Upsert edges
@@ -239,59 +322,6 @@ export class IncrementalScanner {
   }
 
   /**
-   * Process a single code chunk
-   */
-  private async processChunk(
-    chunk: CodeChunk,
-    filePath: string,
-    stats: ScanStats,
-    mode: "add" | "update",
-  ): Promise<void> {
-    // 1. Generate summary if configured
-    let summary: string | undefined;
-    if (this.summarizer) {
-      try {
-        const summaryResult = await this.summarizer.summarize(chunk);
-        summary = summaryResult.summary;
-      } catch (error) {
-        console.warn("Failed to generate summary:", error);
-      }
-    }
-
-    // 2. Extract graph data (nodes + edges)
-    const { nodes, edges } = await this.graphExtractor.extractFromChunk(
-      chunk,
-      filePath,
-    );
-
-    // 3. Add summary to nodes
-    for (const node of nodes) {
-      if (summary) {
-        node.summary = summary;
-      }
-
-      // KAG: Upsert node
-      await this.codeGraph.upsertNode(node);
-
-      if (mode === "add") {
-        stats.nodesAdded++;
-      } else {
-        stats.nodesUpdated++;
-      }
-    }
-
-    // 4. Upsert edges
-    for (const edge of edges) {
-      await this.codeGraph.upsertEdge(edge);
-      stats.edgesAdded++;
-    }
-
-    // RAG: Would add to vector store here
-    // stats.documentsUpdated++;
-    // stats.embeddingsRegenerated++;
-  }
-
-  /**
    * Chunk a file into code chunks
    */
   private async chunkFile(
@@ -328,54 +358,6 @@ export class IncrementalScanner {
       console.warn(`Failed to chunk file ${filePath}:`, error);
       return [];
     }
-  }
-
-  /**
-   * Create embedding for a code node and store in vector store
-   */
-  private async createCodeEmbedding(
-    node: CodeNode,
-    chunk: CodeChunk,
-    filePath: string,
-  ): Promise<void> {
-    if (!this.vectorStore || !this.embeddings) return;
-
-    // Generate embedding text: name + signature + summary + code snippet
-    const codeSnippet = chunk.content.slice(0, 500); // First 500 chars of code
-    const embeddingText = [
-      node.name,
-      node.signature || "",
-      node.summary || "",
-      codeSnippet,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    // Generate embedding
-    const vector = await this.embeddings.embed(embeddingText);
-
-    // Create vector payload
-    const payload: VectorPayload = {
-      memoryId: node.id,
-      type: node.type,
-      title: node.name,
-      tags: [
-        chunk.metadata.language,
-        ...(node.metadata?.isExported ? ["exported"] : []),
-      ],
-      relatedFiles: [filePath],
-      importance: node.type === "function" || node.type === "class" ? 0.7 : 0.5,
-      // Additional code-specific metadata
-      signature: node.signature,
-      startLine: node.startLine,
-      endLine: node.endLine,
-    };
-
-    // Generate deterministic vector ID
-    const vectorId = this.generateVectorId(filePath, node.name);
-
-    // Upsert to vector store
-    await this.vectorStore.upsert(vectorId, vector, payload);
   }
 
   /**

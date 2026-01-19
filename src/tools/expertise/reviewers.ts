@@ -285,7 +285,7 @@ async function analyzeFileOwnership(
 }
 
 function generateReason(
-  name: string,
+  _name: string,
   filesOwned: string[],
   avgOwnership: number,
   hasRecentActivity: boolean,

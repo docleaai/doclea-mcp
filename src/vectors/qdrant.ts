@@ -1,6 +1,10 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import type { SearchFilters } from "@/types";
-import type { VectorPayload, VectorSearchResult, VectorStore } from "./interface";
+import type {
+  VectorPayload,
+  VectorSearchResult,
+  VectorStore,
+} from "./interface";
 
 // Re-export types from interface for backwards compatibility
 export type { VectorPayload, VectorSearchResult } from "./interface";

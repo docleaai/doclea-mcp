@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { VectorPayload } from "@/vectors/interface";
-import { SqliteVecStore } from "@/vectors/sqlite-vec";
+import { LibSqlVectorStore } from "@/vectors/libsql";
 
 const VECTOR_SIZE = 384;
 
@@ -70,9 +70,9 @@ describe("Zero-Config E2E Tests", () => {
   });
 
   describe("zero-config startup without Docker", () => {
-    test("sqlite-vec store initializes without external services", async () => {
+    test("libsql store initializes without external services", async () => {
       const dbPath = join(TEST_DIR, "vectors-test-1.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
 
       await store.initialize();
 
@@ -82,11 +82,11 @@ describe("Zero-Config E2E Tests", () => {
       store.close();
     });
 
-    test("sqlite-vec store persists data to disk", async () => {
+    test("libsql store persists data to disk", async () => {
       const dbPath = join(TEST_DIR, "vectors-persist.db");
 
       // Create and populate store
-      const store1 = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store1 = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store1.initialize();
 
       const vector = normalizeVector(createRandomVector());
@@ -98,7 +98,7 @@ describe("Zero-Config E2E Tests", () => {
       store1.close();
 
       // Reopen and verify data
-      const store2 = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store2 = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store2.initialize();
 
       const info = await store2.getCollectionInfo();
@@ -110,9 +110,9 @@ describe("Zero-Config E2E Tests", () => {
       store2.close();
     });
 
-    test("sqlite-vec completes full memory workflow", async () => {
+    test("libsql completes full memory workflow", async () => {
       const dbPath = join(TEST_DIR, "vectors-workflow.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       // Store
@@ -149,9 +149,9 @@ describe("Zero-Config E2E Tests", () => {
       store.close();
     });
 
-    test("sqlite-vec handles multiple concurrent vectors", async () => {
+    test("libsql handles multiple concurrent vectors", async () => {
       const dbPath = join(TEST_DIR, "vectors-concurrent.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       // Insert 100 vectors
@@ -226,10 +226,10 @@ describe("Zero-Config E2E Tests", () => {
   });
 
   describe("graceful fallback", () => {
-    test("sqlite-vec works when Qdrant is unavailable", async () => {
+    test("libsql works when Qdrant is unavailable", async () => {
       // This test verifies that the embedded store works independently
       const dbPath = join(TEST_DIR, "vectors-fallback.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const vector = normalizeVector(createRandomVector());
@@ -263,11 +263,11 @@ describe("Zero-Config E2E Tests", () => {
       mkdirSync(join(TEST_DIR, "project1"), { recursive: true });
       mkdirSync(join(TEST_DIR, "project2"), { recursive: true });
 
-      const store1 = new SqliteVecStore({
+      const store1 = new LibSqlVectorStore({
         dbPath: dbPath1,
         vectorSize: VECTOR_SIZE,
       });
-      const store2 = new SqliteVecStore({
+      const store2 = new LibSqlVectorStore({
         dbPath: dbPath2,
         vectorSize: VECTOR_SIZE,
       });
@@ -322,7 +322,7 @@ describe("Zero-Config E2E Tests", () => {
   describe("performance baseline", () => {
     test("insert performance meets baseline (>50 vectors/sec)", async () => {
       const dbPath = join(TEST_DIR, "vectors-perf-insert.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const count = 100;
@@ -348,7 +348,7 @@ describe("Zero-Config E2E Tests", () => {
 
     test("search performance meets baseline (<100ms for 1000 vectors)", async () => {
       const dbPath = join(TEST_DIR, "vectors-perf-search.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       // Insert 1000 vectors
@@ -382,7 +382,7 @@ describe("Zero-Config E2E Tests", () => {
   describe("edge cases", () => {
     test("handles empty database gracefully", async () => {
       const dbPath = join(TEST_DIR, "vectors-empty.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const queryVector = normalizeVector(createRandomVector());
@@ -395,7 +395,7 @@ describe("Zero-Config E2E Tests", () => {
 
     test("handles special characters in payload", async () => {
       const dbPath = join(TEST_DIR, "vectors-special.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const payload = createMockPayload({
@@ -417,7 +417,7 @@ describe("Zero-Config E2E Tests", () => {
 
     test("handles unicode in payload", async () => {
       const dbPath = join(TEST_DIR, "vectors-unicode.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const payload = createMockPayload({
@@ -437,7 +437,7 @@ describe("Zero-Config E2E Tests", () => {
 
     test("handles very long strings", async () => {
       const dbPath = join(TEST_DIR, "vectors-long.db");
-      const store = new SqliteVecStore({ dbPath, vectorSize: VECTOR_SIZE });
+      const store = new LibSqlVectorStore({ dbPath, vectorSize: VECTOR_SIZE });
       await store.initialize();
 
       const longTitle = "A".repeat(10000);

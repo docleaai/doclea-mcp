@@ -3,14 +3,46 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createVectorStore } from "@/vectors";
-import { getDbPath, getProjectPath, loadConfig } from "./config";
-import { createStorageBackend } from "./storage/factory";
-import type { IStorageBackend } from "./storage/interface";
+import { type ExperimentManager, getExperimentManager } from "./ab-testing";
+import { getContextCache } from "./caching";
+import { getProjectPath, loadConfig } from "./config";
+import { TagTaxonomyStorage } from "./database/tag-taxonomy";
 import {
   CachedEmbeddingClient,
   createEmbeddingClient,
 } from "./embeddings/provider";
+import { createStorageBackend } from "./storage/factory";
+import type { IStorageBackend } from "./storage/interface";
+import { TaxonomyManager } from "./tagging";
+import { exportData, importData } from "./tools/backup";
 import { importContent, initProject } from "./tools/bootstrap";
+import {
+  allocateBudget,
+  getBudgetPresets,
+  getModelWindows,
+} from "./tools/budget";
+import {
+  analyzeImpact,
+  batchUpdateSummaries,
+  findImplementations,
+  getCallGraph,
+  getCodeNode,
+  getDependencyTree,
+  getUnsummarized,
+  scanCode,
+  stopCodeWatch,
+  summarizeCode,
+  updateNodeSummary,
+} from "./tools/code";
+import { buildContext } from "./tools/context";
+import {
+  bulkReviewCrossLayer,
+  getCodeForMemory,
+  getCrossLayerSuggestions,
+  getMemoriesForCode,
+  reviewCrossLayerSuggestion,
+  suggestRelations,
+} from "./tools/cross-layer-relations";
 import { mapExpertise, suggestReviewers } from "./tools/expertise";
 import {
   generateChangelog,
@@ -23,102 +55,42 @@ import {
   searchMemory,
   storeMemory,
   updateMemory,
-  StoreMemoryInputSchema,
-  type StoreMemoryResult,
 } from "./tools/memory";
 import {
-  listPendingMemories,
   approvePendingMemory,
-  rejectPendingMemory,
   bulkApprovePendingMemories,
   bulkRejectPendingMemories,
+  confirmMemory,
+  getReviewQueue,
   getStorageMode,
+  listPendingMemories,
+  rejectPendingMemory,
   setStorageMode,
-  ListPendingInputSchema,
-  ApprovePendingInputSchema,
-  RejectPendingInputSchema,
-  BulkApprovePendingInputSchema,
-  BulkRejectPendingInputSchema,
 } from "./tools/memory/pending";
+import { refreshConfidence } from "./tools/memory/refresh";
+import { handleStaleness } from "./tools/memory/staleness";
 import {
-  exportData,
-  importData,
-  ExportInputSchema,
-  ImportInputSchema,
-} from "./tools/backup";
-import {
-  scanCode,
-  stopCodeWatch,
-  getCodeNode,
-  updateNodeSummary,
-  getCallGraph,
-  findImplementations,
-  getDependencyTree,
-  analyzeImpact,
-  summarizeCode,
-  getUnsummarized,
-  batchUpdateSummaries,
-  ScanCodeInputSchema,
-  GetCodeNodeInputSchema,
-  UpdateNodeSummaryInputSchema,
-  GetCallGraphInputSchema,
-  FindImplementationsInputSchema,
-  GetDependencyTreeInputSchema,
-  AnalyzeImpactInputSchema,
-  SummarizeCodeInputSchema,
-  GetUnsummarizedInputSchema,
-  BatchUpdateSummariesInputSchema,
-} from "./tools/code";
-import { buildContext, BuildContextInputSchema } from "./tools/context";
-import {
-  linkMemories,
-  getRelatedMemories,
   deleteRelation,
   findPath,
-  LinkMemoriesInputSchema,
-  GetRelatedMemoriesInputSchema,
-  DeleteRelationInputSchema,
-  FindPathInputSchema,
+  getRelatedMemories,
+  linkMemories,
 } from "./tools/memory-relations";
 import {
-  allocateBudget,
-  getModelWindows,
-  getBudgetPresets,
-  AllocateBudgetInputSchema,
-  GetModelWindowsInputSchema,
-  GetBudgetPresetsInputSchema,
-} from "./tools/budget";
-import {
+  bulkReview,
   detectRelations,
   getSuggestions,
   reviewSuggestion,
-  bulkReview,
-  DetectRelationsInputSchema,
-  GetSuggestionsInputSchema,
-  ReviewSuggestionInputSchema,
-  BulkReviewInputSchema,
 } from "./tools/relation-detection";
-import {
-  suggestRelations,
-  getCodeForMemory,
-  getMemoriesForCode,
-  getCrossLayerSuggestions,
-  reviewCrossLayerSuggestion,
-  bulkReviewCrossLayer,
-  SuggestRelationsInputSchema,
-  GetCodeForMemoryInputSchema,
-  GetMemoriesForCodeInputSchema,
-  GetCrossLayerSuggestionsInputSchema,
-  ReviewCrossLayerSuggestionInputSchema,
-  BulkReviewCrossLayerInputSchema,
-} from "./tools/cross-layer-relations";
 
 // Initialize services
 const config = loadConfig();
 const projectPath = getProjectPath();
 
 // Create storage backend from config
-const storage: IStorageBackend = createStorageBackend(config.storage, projectPath);
+const storage: IStorageBackend = createStorageBackend(
+  config.storage,
+  projectPath,
+);
 await storage.initialize();
 
 const vectors = createVectorStore(config.vector, projectPath);
@@ -127,12 +99,33 @@ const vectors = createVectorStore(config.vector, projectPath);
 const baseEmbeddings = createEmbeddingClient(config.embedding);
 const modelName =
   config.embedding.provider === "local" ? "local-tei" : config.embedding.model;
-const embeddings = new CachedEmbeddingClient(baseEmbeddings, storage, modelName);
+const embeddings = new CachedEmbeddingClient(
+  baseEmbeddings,
+  storage,
+  modelName,
+);
 
 // Initialize vector store
 await vectors.initialize();
 
-console.log(`[doclea] Storage: ${storage.getBackendType()}, Mode: ${storage.getStorageMode()}`);
+// Initialize tag taxonomy with storage
+const taxonomyStorage = new TagTaxonomyStorage(storage.getDatabase());
+await TaxonomyManager.create(taxonomyStorage);
+console.error("[doclea] Tag taxonomy initialized");
+
+// Initialize A/B testing experiment manager (if configured)
+let experimentManager: ExperimentManager | null = null;
+if (config.abTesting?.enabled) {
+  experimentManager = getExperimentManager(config.abTesting);
+  await experimentManager.initialize(storage.getDatabase());
+  console.error(
+    `[doclea] A/B Testing enabled: ${config.abTesting.experiments.length} experiments`,
+  );
+}
+
+console.log(
+  `[doclea] Storage: ${storage.getBackendType()}, Mode: ${storage.getStorageMode()}`,
+);
 
 // Create MCP server using new API
 const server = new McpServer({
@@ -197,18 +190,26 @@ server.registerTool(
     // Handle both committed and pending results
     if (result.status === "committed") {
       return {
-        content: [{ type: "text", text: JSON.stringify(result.memory, null, 2) }],
+        content: [
+          { type: "text", text: JSON.stringify(result.memory, null, 2) },
+        ],
       };
     } else {
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            status: "pending",
-            pendingId: result.pendingId,
-            message: result.message,
-          }, null, 2),
-        }],
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                status: "pending",
+                pendingId: result.pendingId,
+                message: result.message,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
   },
@@ -219,7 +220,7 @@ server.registerTool(
   {
     title: "Search Memories",
     description:
-      "Search memories using natural language. Returns relevant decisions, solutions, patterns, and notes.",
+      "Search memories using natural language. Returns compact results with id, title, type, score, and preview. Use doclea_get with the memory ID to fetch full content.",
     inputSchema: {
       query: z.string().describe("Natural language search query"),
       type: MemoryTypeEnum.optional().describe("Filter by memory type"),
@@ -242,14 +243,55 @@ server.registerTool(
     },
   },
   async (args) => {
+    const startTime = performance.now();
+
+    // Get scoring config from A/B testing (if enabled)
+    const { scoringConfig, assignment } = experimentManager
+      ? await experimentManager.getScoringConfigForRequest(args.query)
+      : { scoringConfig: undefined, assignment: null };
+
     const results = await searchMemory(
       { ...args, limit: args.limit ?? 10 },
       storage,
       vectors,
       embeddings,
+      scoringConfig,
     );
+
+    // Record A/B testing metrics
+    if (experimentManager && assignment) {
+      const latencyMs = performance.now() - startTime;
+      const topScore = results.length > 0 ? results[0].score : undefined;
+      await experimentManager.recordMetrics(
+        assignment,
+        args.query,
+        latencyMs,
+        results.length,
+        topScore,
+      );
+    }
+
+    // Return compact results - just enough to identify and decide
+    const compactResults = results.map((r) => {
+      const preview =
+        r.memory.summary ||
+        (r.memory.content.length > 150
+          ? `${r.memory.content.slice(0, 150)}...`
+          : r.memory.content);
+      return {
+        id: r.memory.id,
+        type: r.memory.type,
+        title: r.memory.title,
+        score: Math.round(r.score * 100) / 100,
+        preview,
+        tags: r.memory.tags,
+      };
+    });
+
     return {
-      content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+      content: [
+        { type: "text", text: JSON.stringify(compactResults, null, 2) },
+      ],
     };
   },
 );
@@ -345,7 +387,12 @@ server.registerTool(
     },
   },
   async (args) => {
-    const result = await generateCommitMessage(args, storage, vectors, embeddings);
+    const result = await generateCommitMessage(
+      args,
+      storage,
+      vectors,
+      embeddings,
+    );
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };
@@ -594,7 +641,7 @@ server.registerTool(
         .array(z.string())
         .optional()
         .describe(
-          "Patterns to exclude (default: node_modules, .git, dist, etc.)",
+          "Patterns to exclude. Defaults: node_modules, .git, dist, build, .next, coverage, .turbo, .cache, *.d.ts, *.min.js, lock files, etc.",
         ),
       incremental: z
         .boolean()
@@ -608,28 +655,63 @@ server.registerTool(
         .boolean()
         .default(true)
         .describe("Extract summaries from JSDoc/docstrings"),
+      batchSize: z
+        .number()
+        .default(50)
+        .describe(
+          "Number of files to process per batch (default: 50). Lower for large repos to prevent timeout.",
+        ),
+      maxFiles: z
+        .number()
+        .optional()
+        .describe("Maximum files to scan (for testing on huge repos)"),
+      projectPath: z
+        .string()
+        .optional()
+        .describe(
+          "Project root path to scan. Defaults to the initialized project path.",
+        ),
     },
   },
   async (args) => {
-    const result = await scanCode(
-      {
-        patterns: args.patterns,
-        exclude: args.exclude,
-        incremental: args.incremental ?? true,
-        watch: args.watch ?? false,
-        extractSummaries: args.extractSummaries ?? true,
-      },
-      storage.getDatabase(),
-      vectors,
-      embeddings,
-    );
-    return {
-      content: [
-        { type: "text", text: result.message },
-        { type: "text", text: "\n\n" },
-        { type: "text", text: JSON.stringify(result.result?.stats, null, 2) },
-      ],
-    };
+    try {
+      // Use provided projectPath or the initialized project path
+      const scanPath = args.projectPath || projectPath;
+      console.log(`[doclea_scan_code] Using project path: ${scanPath}`);
+      const result = await scanCode(
+        {
+          patterns: args.patterns,
+          exclude: args.exclude,
+          incremental: args.incremental ?? true,
+          watch: args.watch ?? false,
+          extractSummaries: args.extractSummaries ?? true,
+          batchSize: args.batchSize ?? 50,
+          maxFiles: args.maxFiles ?? 500, // Default limit to prevent timeouts
+          projectPath: scanPath,
+        },
+        storage.getDatabase(),
+        vectors,
+        embeddings,
+      );
+      return {
+        content: [
+          { type: "text", text: result.message },
+          { type: "text", text: "\n\n" },
+          { type: "text", text: JSON.stringify(result.result?.stats, null, 2) },
+        ],
+      };
+    } catch (error) {
+      console.error("[doclea_scan_code] Error:", error);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Scan failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
   },
 );
 
@@ -694,7 +776,9 @@ server.registerTool(
     inputSchema: {
       nodeId: z
         .string()
-        .describe("ID of the code node (e.g., 'src/api.ts:function:getUserData')"),
+        .describe(
+          "ID of the code node (e.g., 'src/api.ts:function:getUserData')",
+        ),
       summary: z
         .string()
         .describe("AI-generated summary provided by the LLM client"),
@@ -875,7 +959,10 @@ server.registerTool(
     const breakingChangesText =
       result.result.breakingChanges.length > 0
         ? `\n\n**Breaking Changes:**\n${result.result.breakingChanges
-            .map((c) => `- [${c.severity.toUpperCase()}] ${c.node.name}: ${c.reason}`)
+            .map(
+              (c) =>
+                `- [${c.severity.toUpperCase()}] ${c.node.name}: ${c.reason}`,
+            )
             .join("\n")}`
         : "";
     return {
@@ -897,10 +984,7 @@ server.registerTool(
     description:
       "Run heuristic summarization on code files and identify nodes that need AI-generated summaries. Returns a list of nodes with their code for the host LLM to generate summaries. Use batch_update_summaries to store the generated summaries.",
     inputSchema: {
-      filePath: z
-        .string()
-        .optional()
-        .describe("Specific file to process"),
+      filePath: z.string().optional().describe("Specific file to process"),
       directory: z
         .string()
         .optional()
@@ -944,8 +1028,14 @@ server.registerTool(
         { type: "text", text: JSON.stringify(result.stats, null, 2) },
         ...(result.needsAiSummary.length > 0
           ? [
-              { type: "text" as const, text: "\n\n**Nodes Needing AI Summary:**\n" },
-              { type: "text" as const, text: JSON.stringify(result.needsAiSummary, null, 2) },
+              {
+                type: "text" as const,
+                text: "\n\n**Nodes Needing AI Summary:**\n",
+              },
+              {
+                type: "text" as const,
+                text: JSON.stringify(result.needsAiSummary, null, 2),
+              },
             ]
           : []),
       ],
@@ -1084,7 +1174,10 @@ server.registerTool(
       content: [
         { type: "text", text: result.context },
         { type: "text", text: "\n\n---\n\n" },
-        { type: "text", text: `**Metadata**: ${JSON.stringify(result.metadata, null, 2)}` },
+        {
+          type: "text",
+          text: `**Metadata**: ${JSON.stringify(result.metadata, null, 2)}`,
+        },
       ],
     };
   },
@@ -1261,591 +1354,585 @@ server.registerTool(
 
 // Register Token Budget tools
 server.registerTool(
-	"doclea_allocate_budget",
-	{
-		title: "Allocate Token Budget",
-		description:
-			"Allocate token budget across categories (system, context, user, response) for optimal LLM usage. Supports model presets, custom ratios, and constraints. Returns allocation with warnings about budget limits.",
-		inputSchema: {
-			totalBudget: z
-				.number()
-				.min(100)
-				.optional()
-				.describe("Total token budget (or use modelName)"),
-			modelName: z
-				.enum([
-					"gpt-4-turbo",
-					"gpt-4",
-					"gpt-3.5-turbo",
-					"claude-opus",
-					"claude-sonnet",
-					"claude-haiku",
-					"llama-3-70b",
-					"llama-3-8b",
-					"mistral-medium",
-					"mixtral-8x7b",
-				])
-				.optional()
-				.describe("Model name (auto-detects context window)"),
-			preset: z
-				.enum(["balanced", "contextHeavy", "conservative", "chat"])
-				.default("balanced")
-				.describe("Budget allocation preset"),
-			customRatios: z
-				.object({
-					system: z.number().min(0).max(1).optional(),
-					context: z.number().min(0).max(1).optional(),
-					user: z.number().min(0).max(1).optional(),
-					response: z.number().min(0).max(1).optional(),
-				})
-				.optional()
-				.describe("Custom ratios (must sum to 1.0)"),
-			minimums: z
-				.object({
-					system: z.number().min(0).optional(),
-					context: z.number().min(0).optional(),
-					user: z.number().min(0).optional(),
-					response: z.number().min(0).optional(),
-				})
-				.optional()
-				.describe("Minimum tokens per category"),
-			maximums: z
-				.object({
-					system: z.number().min(0).optional(),
-					context: z.number().min(0).optional(),
-					user: z.number().min(0).optional(),
-					response: z.number().min(0).optional(),
-				})
-				.optional()
-				.describe("Maximum tokens per category"),
-		},
-	},
-	async (args) => {
-		const result = await allocateBudget({
-			totalBudget: args.totalBudget,
-			modelName: args.modelName,
-			preset: args.preset ?? "balanced",
-			customRatios: args.customRatios,
-			minimums: args.minimums,
-			maximums: args.maximums,
-		});
-		return {
-			content: [
-				{
-					type: "text",
-					text: `**Budget Allocation (${result.config.preset})**\n\n`,
-				},
-				{
-					type: "text",
-					text: `Total: ${result.config.totalBudget.toLocaleString()} tokens\n\n`,
-				},
-				{
-					type: "text",
-					text: `**Allocated:**\n- System: ${result.allocation.allocated.system.toLocaleString()} tokens (${Math.round(result.config.ratios.system * 100)}%)\n- Context: ${result.allocation.allocated.context.toLocaleString()} tokens (${Math.round(result.config.ratios.context * 100)}%)\n- User: ${result.allocation.allocated.user.toLocaleString()} tokens (${Math.round(result.config.ratios.user * 100)}%)\n- Response: ${result.allocation.allocated.response.toLocaleString()} tokens (${Math.round(result.config.ratios.response * 100)}%)\n\n`,
-				},
-				{
-					type: "text",
-					text: `Utilization: ${(result.allocation.utilization * 100).toFixed(1)}%\n`,
-				},
-				{
-					type: "text",
-					text:
-						result.allocation.warnings.length > 0
-							? `\n**Warnings:**\n${result.allocation.warnings.map((w) => `- ${w}`).join("\n")}\n`
-							: "",
-				},
-				{ type: "text", text: "\n\n---\n\n" },
-				{
-					type: "text",
-					text: JSON.stringify(result, null, 2),
-				},
-			],
-		};
-	},
+  "doclea_allocate_budget",
+  {
+    title: "Allocate Token Budget",
+    description:
+      "Allocate token budget across categories (system, context, user, response) for optimal LLM usage. Supports model presets, custom ratios, and constraints. Returns allocation with warnings about budget limits.",
+    inputSchema: {
+      totalBudget: z
+        .number()
+        .min(100)
+        .optional()
+        .describe("Total token budget (or use modelName)"),
+      modelName: z
+        .enum([
+          "gpt-4-turbo",
+          "gpt-4",
+          "gpt-3.5-turbo",
+          "claude-opus",
+          "claude-sonnet",
+          "claude-haiku",
+          "llama-3-70b",
+          "llama-3-8b",
+          "mistral-medium",
+          "mixtral-8x7b",
+        ])
+        .optional()
+        .describe("Model name (auto-detects context window)"),
+      preset: z
+        .enum(["balanced", "contextHeavy", "conservative", "chat"])
+        .default("balanced")
+        .describe("Budget allocation preset"),
+      customRatios: z
+        .object({
+          system: z.number().min(0).max(1).optional(),
+          context: z.number().min(0).max(1).optional(),
+          user: z.number().min(0).max(1).optional(),
+          response: z.number().min(0).max(1).optional(),
+        })
+        .optional()
+        .describe("Custom ratios (must sum to 1.0)"),
+      minimums: z
+        .object({
+          system: z.number().min(0).optional(),
+          context: z.number().min(0).optional(),
+          user: z.number().min(0).optional(),
+          response: z.number().min(0).optional(),
+        })
+        .optional()
+        .describe("Minimum tokens per category"),
+      maximums: z
+        .object({
+          system: z.number().min(0).optional(),
+          context: z.number().min(0).optional(),
+          user: z.number().min(0).optional(),
+          response: z.number().min(0).optional(),
+        })
+        .optional()
+        .describe("Maximum tokens per category"),
+    },
+  },
+  async (args) => {
+    const result = await allocateBudget({
+      totalBudget: args.totalBudget,
+      modelName: args.modelName,
+      preset: args.preset ?? "balanced",
+      customRatios: args.customRatios,
+      minimums: args.minimums,
+      maximums: args.maximums,
+    });
+    return {
+      content: [
+        {
+          type: "text",
+          text: `**Budget Allocation (${result.config.preset})**\n\n`,
+        },
+        {
+          type: "text",
+          text: `Total: ${result.config.totalBudget.toLocaleString()} tokens\n\n`,
+        },
+        {
+          type: "text",
+          text: `**Allocated:**\n- System: ${result.allocation.allocated.system.toLocaleString()} tokens (${Math.round(result.config.ratios.system * 100)}%)\n- Context: ${result.allocation.allocated.context.toLocaleString()} tokens (${Math.round(result.config.ratios.context * 100)}%)\n- User: ${result.allocation.allocated.user.toLocaleString()} tokens (${Math.round(result.config.ratios.user * 100)}%)\n- Response: ${result.allocation.allocated.response.toLocaleString()} tokens (${Math.round(result.config.ratios.response * 100)}%)\n\n`,
+        },
+        {
+          type: "text",
+          text: `Utilization: ${(result.allocation.utilization * 100).toFixed(1)}%\n`,
+        },
+        {
+          type: "text",
+          text:
+            result.allocation.warnings.length > 0
+              ? `\n**Warnings:**\n${result.allocation.warnings.map((w) => `- ${w}`).join("\n")}\n`
+              : "",
+        },
+        { type: "text", text: "\n\n---\n\n" },
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_model_windows",
-	{
-		title: "Get Model Context Windows",
-		description:
-			"Get available model context window sizes. Useful for understanding token limits when allocating budgets.",
-		inputSchema: {},
-	},
-	async () => {
-		const result = await getModelWindows({});
-		return {
-			content: [
-				{
-					type: "text",
-					text: "**Available Model Context Windows:**\n\n",
-				},
-				{
-					type: "text",
-					text: result.models
-						.map(
-							(m) =>
-								`- ${m.name}: ${m.contextWindow.toLocaleString()} tokens`,
-						)
-						.join("\n"),
-				},
-				{ type: "text", text: "\n\n---\n\n" },
-				{
-					type: "text",
-					text: JSON.stringify(result, null, 2),
-				},
-			],
-		};
-	},
+  "doclea_model_windows",
+  {
+    title: "Get Model Context Windows",
+    description:
+      "Get available model context window sizes. Useful for understanding token limits when allocating budgets.",
+    inputSchema: {},
+  },
+  async () => {
+    const result = await getModelWindows({});
+    return {
+      content: [
+        {
+          type: "text",
+          text: "**Available Model Context Windows:**\n\n",
+        },
+        {
+          type: "text",
+          text: result.models
+            .map(
+              (m) => `- ${m.name}: ${m.contextWindow.toLocaleString()} tokens`,
+            )
+            .join("\n"),
+        },
+        { type: "text", text: "\n\n---\n\n" },
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_budget_presets",
-	{
-		title: "Get Budget Presets",
-		description:
-			"Get available budget allocation presets with example allocations for a given total budget. Shows balanced, context-heavy, conservative, and chat-optimized configurations.",
-		inputSchema: {
-			totalBudget: z
-				.number()
-				.min(100)
-				.default(100000)
-				.describe("Total token budget"),
-		},
-	},
-	async (args) => {
-		const result = await getBudgetPresets({
-			totalBudget: args.totalBudget ?? 100000,
-		});
+  "doclea_budget_presets",
+  {
+    title: "Get Budget Presets",
+    description:
+      "Get available budget allocation presets with example allocations for a given total budget. Shows balanced, context-heavy, conservative, and chat-optimized configurations.",
+    inputSchema: {
+      totalBudget: z
+        .number()
+        .min(100)
+        .default(100000)
+        .describe("Total token budget"),
+    },
+  },
+  async (args) => {
+    const result = await getBudgetPresets({
+      totalBudget: args.totalBudget ?? 100000,
+    });
 
-		const formatPreset = (
-			name: string,
-			data: {
-				ratios: Record<string, number>;
-				allocation: { allocated: Record<string, number> };
-			},
-		) => {
-			return `**${name}**
+    const formatPreset = (
+      name: string,
+      data: {
+        ratios: Record<string, number>;
+        allocation: { allocated: Record<string, number> };
+      },
+    ) => {
+      return `**${name}**
 - System: ${data.allocation.allocated.system.toLocaleString()} tokens (${Math.round(data.ratios.system * 100)}%)
 - Context: ${data.allocation.allocated.context.toLocaleString()} tokens (${Math.round(data.ratios.context * 100)}%)
 - User: ${data.allocation.allocated.user.toLocaleString()} tokens (${Math.round(data.ratios.user * 100)}%)
 - Response: ${data.allocation.allocated.response.toLocaleString()} tokens (${Math.round(data.ratios.response * 100)}%)`;
-		};
+    };
 
-		return {
-			content: [
-				{
-					type: "text",
-					text: `**Budget Presets** (${args.totalBudget?.toLocaleString() ?? "100,000"} tokens)\n\n`,
-				},
-				{
-					type: "text",
-					text: formatPreset("Balanced", result.presets.balanced),
-				},
-				{ type: "text", text: "\n\n" },
-				{
-					type: "text",
-					text: formatPreset("Context-Heavy", result.presets.contextHeavy),
-				},
-				{ type: "text", text: "\n\n" },
-				{
-					type: "text",
-					text: formatPreset("Conservative", result.presets.conservative),
-				},
-				{ type: "text", text: "\n\n" },
-				{
-					type: "text",
-					text: formatPreset("Chat", result.presets.chat),
-				},
-				{ type: "text", text: "\n\n---\n\n" },
-				{
-					type: "text",
-					text: JSON.stringify(result, null, 2),
-				},
-			],
-		};
-	},
+    return {
+      content: [
+        {
+          type: "text",
+          text: `**Budget Presets** (${args.totalBudget?.toLocaleString() ?? "100,000"} tokens)\n\n`,
+        },
+        {
+          type: "text",
+          text: formatPreset("Balanced", result.presets.balanced),
+        },
+        { type: "text", text: "\n\n" },
+        {
+          type: "text",
+          text: formatPreset("Context-Heavy", result.presets.contextHeavy),
+        },
+        { type: "text", text: "\n\n" },
+        {
+          type: "text",
+          text: formatPreset("Conservative", result.presets.conservative),
+        },
+        { type: "text", text: "\n\n" },
+        {
+          type: "text",
+          text: formatPreset("Chat", result.presets.chat),
+        },
+        { type: "text", text: "\n\n---\n\n" },
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2),
+        },
+      ],
+    };
+  },
 );
 
 // Register Relation Detection tools
 server.registerTool(
-	"doclea_detect_relations",
-	{
-		title: "Detect Relations",
-		description:
-			"Automatically detect and suggest relationships between memories using semantic similarity, keyword overlap, file path overlap, and temporal proximity. High-confidence relations (≥0.85) are auto-approved; medium-confidence (0.6-0.85) stored as suggestions.",
-		inputSchema: {
-			memoryId: z.string().describe("Memory ID to detect relations for"),
-			semanticThreshold: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe("Minimum semantic similarity (default: 0.75)"),
-			autoApproveThreshold: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe("Confidence threshold for auto-approval (default: 0.85)"),
-		},
-	},
-	async (args) => {
-		const result = await detectRelations(
-			{
-				memoryId: args.memoryId,
-				semanticThreshold: args.semanticThreshold,
-				autoApproveThreshold: args.autoApproveThreshold,
-			},
-			storage,
-			vectors,
-			embeddings,
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.result, null, 2) },
-			],
-		};
-	},
+  "doclea_detect_relations",
+  {
+    title: "Detect Relations",
+    description:
+      "Automatically detect and suggest relationships between memories using semantic similarity, keyword overlap, file path overlap, and temporal proximity. High-confidence relations (≥0.85) are auto-approved; medium-confidence (0.6-0.85) stored as suggestions.",
+    inputSchema: {
+      memoryId: z.string().describe("Memory ID to detect relations for"),
+      semanticThreshold: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum semantic similarity (default: 0.75)"),
+      autoApproveThreshold: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Confidence threshold for auto-approval (default: 0.85)"),
+    },
+  },
+  async (args) => {
+    const result = await detectRelations(
+      {
+        memoryId: args.memoryId,
+        semanticThreshold: args.semanticThreshold,
+        autoApproveThreshold: args.autoApproveThreshold,
+      },
+      storage,
+      vectors,
+      embeddings,
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.result, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_get_suggestions",
-	{
-		title: "Get Relation Suggestions",
-		description:
-			"Get pending relation suggestions for review. Filter by source/target memory, detection method, or minimum confidence.",
-		inputSchema: {
-			sourceId: z.string().optional().describe("Filter by source memory ID"),
-			targetId: z.string().optional().describe("Filter by target memory ID"),
-			detectionMethod: z
-				.enum(["semantic", "keyword", "file_overlap", "temporal"])
-				.optional()
-				.describe("Filter by detection method"),
-			minConfidence: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe("Minimum confidence score"),
-			limit: z
-				.number()
-				.min(1)
-				.max(100)
-				.default(20)
-				.describe("Maximum results"),
-			offset: z.number().min(0).default(0).describe("Offset for pagination"),
-		},
-	},
-	async (args) => {
-		const result = await getSuggestions(
-			{
-				sourceId: args.sourceId,
-				targetId: args.targetId,
-				detectionMethod: args.detectionMethod,
-				minConfidence: args.minConfidence,
-				limit: args.limit ?? 20,
-				offset: args.offset ?? 0,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.suggestions, null, 2) },
-			],
-		};
-	},
+  "doclea_get_suggestions",
+  {
+    title: "Get Relation Suggestions",
+    description:
+      "Get pending relation suggestions for review. Filter by source/target memory, detection method, or minimum confidence.",
+    inputSchema: {
+      sourceId: z.string().optional().describe("Filter by source memory ID"),
+      targetId: z.string().optional().describe("Filter by target memory ID"),
+      detectionMethod: z
+        .enum(["semantic", "keyword", "file_overlap", "temporal"])
+        .optional()
+        .describe("Filter by detection method"),
+      minConfidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum confidence score"),
+      limit: z.number().min(1).max(100).default(20).describe("Maximum results"),
+      offset: z.number().min(0).default(0).describe("Offset for pagination"),
+    },
+  },
+  async (args) => {
+    const result = await getSuggestions(
+      {
+        sourceId: args.sourceId,
+        targetId: args.targetId,
+        detectionMethod: args.detectionMethod,
+        minConfidence: args.minConfidence,
+        limit: args.limit ?? 20,
+        offset: args.offset ?? 0,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.suggestions, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_review_suggestion",
-	{
-		title: "Review Relation Suggestion",
-		description:
-			"Approve or reject a single relation suggestion. Approved suggestions create relations; rejected suggestions are marked as such.",
-		inputSchema: {
-			suggestionId: z.string().describe("Suggestion ID to review"),
-			action: z.enum(["approve", "reject"]).describe("Action to take"),
-		},
-	},
-	async (args) => {
-		const result = await reviewSuggestion(
-			{
-				suggestionId: args.suggestionId,
-				action: args.action,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [{ type: "text", text: result.message }],
-		};
-	},
+  "doclea_review_suggestion",
+  {
+    title: "Review Relation Suggestion",
+    description:
+      "Approve or reject a single relation suggestion. Approved suggestions create relations; rejected suggestions are marked as such.",
+    inputSchema: {
+      suggestionId: z.string().describe("Suggestion ID to review"),
+      action: z.enum(["approve", "reject"]).describe("Action to take"),
+    },
+  },
+  async (args) => {
+    const result = await reviewSuggestion(
+      {
+        suggestionId: args.suggestionId,
+        action: args.action,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [{ type: "text", text: result.message }],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_bulk_review",
-	{
-		title: "Bulk Review Suggestions",
-		description:
-			"Approve or reject multiple relation suggestions at once. Useful for quickly processing batches of suggestions.",
-		inputSchema: {
-			suggestionIds: z
-				.array(z.string())
-				.min(1)
-				.describe("Suggestion IDs to review"),
-			action: z.enum(["approve", "reject"]).describe("Action to take for all"),
-		},
-	},
-	async (args) => {
-		const result = await bulkReview(
-			{
-				suggestionIds: args.suggestionIds,
-				action: args.action,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{
-					type: "text",
-					text: JSON.stringify(
-						{
-							processed: result.processed,
-							relationsCreated: result.relationsCreated,
-							failed: result.failed,
-						},
-						null,
-						2,
-					),
-				},
-			],
-		};
-	},
+  "doclea_bulk_review",
+  {
+    title: "Bulk Review Suggestions",
+    description:
+      "Approve or reject multiple relation suggestions at once. Useful for quickly processing batches of suggestions.",
+    inputSchema: {
+      suggestionIds: z
+        .array(z.string())
+        .min(1)
+        .describe("Suggestion IDs to review"),
+      action: z.enum(["approve", "reject"]).describe("Action to take for all"),
+    },
+  },
+  async (args) => {
+    const result = await bulkReview(
+      {
+        suggestionIds: args.suggestionIds,
+        action: args.action,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              processed: result.processed,
+              relationsCreated: result.relationsCreated,
+              failed: result.failed,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
 );
 
 // Register Cross-Layer Relation tools
 server.registerTool(
-	"doclea_suggest_relations",
-	{
-		title: "Suggest Cross-Layer Relations",
-		description:
-			"Detect and suggest relationships between code and memory entities. Use entityType='memory' to find code that a memory documents, or entityType='code' to find memories that code implements.",
-		inputSchema: {
-			entityId: z.string().describe("ID of the entity (memory or code node)"),
-			entityType: z.enum(["code", "memory"]).describe("Type of entity"),
-			relationTypes: z
-				.array(z.enum(["documents", "addresses", "exemplifies"]))
-				.optional()
-				.describe("Filter by relation types"),
-			minConfidence: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe("Minimum confidence threshold (default: 0.6)"),
-		},
-	},
-	async (args) => {
-		const result = await suggestRelations(
-			{
-				entityId: args.entityId,
-				entityType: args.entityType,
-				relationTypes: args.relationTypes,
-				minConfidence: args.minConfidence ?? 0.6,
-			},
-			storage,
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.result, null, 2) },
-			],
-		};
-	},
+  "doclea_suggest_relations",
+  {
+    title: "Suggest Cross-Layer Relations",
+    description:
+      "Detect and suggest relationships between code and memory entities. Use entityType='memory' to find code that a memory documents, or entityType='code' to find memories that code implements.",
+    inputSchema: {
+      entityId: z.string().describe("ID of the entity (memory or code node)"),
+      entityType: z.enum(["code", "memory"]).describe("Type of entity"),
+      relationTypes: z
+        .array(z.enum(["documents", "addresses", "exemplifies"]))
+        .optional()
+        .describe("Filter by relation types"),
+      minConfidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum confidence threshold (default: 0.6)"),
+    },
+  },
+  async (args) => {
+    const result = await suggestRelations(
+      {
+        entityId: args.entityId,
+        entityType: args.entityType,
+        relationTypes: args.relationTypes,
+        minConfidence: args.minConfidence ?? 0.6,
+      },
+      storage,
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.result, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_get_code_for_memory",
-	{
-		title: "Get Code for Memory",
-		description:
-			"Get code nodes related to a memory through cross-layer relations (documents, addresses, exemplifies).",
-		inputSchema: {
-			memoryId: z.string().describe("Memory ID to get code for"),
-			relationType: z
-				.enum(["documents", "addresses", "exemplifies"])
-				.optional()
-				.describe("Filter by relation type"),
-		},
-	},
-	async (args) => {
-		const result = await getCodeForMemory(
-			{
-				memoryId: args.memoryId,
-				relationType: args.relationType,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.relations, null, 2) },
-			],
-		};
-	},
+  "doclea_get_code_for_memory",
+  {
+    title: "Get Code for Memory",
+    description:
+      "Get code nodes related to a memory through cross-layer relations (documents, addresses, exemplifies).",
+    inputSchema: {
+      memoryId: z.string().describe("Memory ID to get code for"),
+      relationType: z
+        .enum(["documents", "addresses", "exemplifies"])
+        .optional()
+        .describe("Filter by relation type"),
+    },
+  },
+  async (args) => {
+    const result = await getCodeForMemory(
+      {
+        memoryId: args.memoryId,
+        relationType: args.relationType,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.relations, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_get_memories_for_code",
-	{
-		title: "Get Memories for Code",
-		description:
-			"Get memories related to a code node through cross-layer relations.",
-		inputSchema: {
-			codeNodeId: z.string().describe("Code node ID to get memories for"),
-			relationType: z
-				.enum(["documents", "addresses", "exemplifies"])
-				.optional()
-				.describe("Filter by relation type"),
-		},
-	},
-	async (args) => {
-		const result = await getMemoriesForCode(
-			{
-				codeNodeId: args.codeNodeId,
-				relationType: args.relationType,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.relations, null, 2) },
-			],
-		};
-	},
+  "doclea_get_memories_for_code",
+  {
+    title: "Get Memories for Code",
+    description:
+      "Get memories related to a code node through cross-layer relations.",
+    inputSchema: {
+      codeNodeId: z.string().describe("Code node ID to get memories for"),
+      relationType: z
+        .enum(["documents", "addresses", "exemplifies"])
+        .optional()
+        .describe("Filter by relation type"),
+    },
+  },
+  async (args) => {
+    const result = await getMemoriesForCode(
+      {
+        codeNodeId: args.codeNodeId,
+        relationType: args.relationType,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.relations, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_get_cross_layer_suggestions",
-	{
-		title: "Get Cross-Layer Suggestions",
-		description:
-			"Get pending cross-layer relation suggestions for review. Filter by memory, code node, or detection method.",
-		inputSchema: {
-			memoryId: z.string().optional().describe("Filter by memory ID"),
-			codeNodeId: z.string().optional().describe("Filter by code node ID"),
-			detectionMethod: z
-				.enum(["code_reference", "file_path_match", "keyword_match"])
-				.optional()
-				.describe("Filter by detection method"),
-			minConfidence: z
-				.number()
-				.min(0)
-				.max(1)
-				.optional()
-				.describe("Minimum confidence score"),
-			limit: z.number().min(1).max(100).optional().describe("Maximum results"),
-			offset: z.number().min(0).optional().describe("Offset for pagination"),
-		},
-	},
-	async (args) => {
-		const result = await getCrossLayerSuggestions(
-			{
-				memoryId: args.memoryId,
-				codeNodeId: args.codeNodeId,
-				detectionMethod: args.detectionMethod,
-				minConfidence: args.minConfidence,
-				limit: args.limit ?? 20,
-				offset: args.offset ?? 0,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{ type: "text", text: JSON.stringify(result.suggestions, null, 2) },
-			],
-		};
-	},
+  "doclea_get_cross_layer_suggestions",
+  {
+    title: "Get Cross-Layer Suggestions",
+    description:
+      "Get pending cross-layer relation suggestions for review. Filter by memory, code node, or detection method.",
+    inputSchema: {
+      memoryId: z.string().optional().describe("Filter by memory ID"),
+      codeNodeId: z.string().optional().describe("Filter by code node ID"),
+      detectionMethod: z
+        .enum(["code_reference", "file_path_match", "keyword_match"])
+        .optional()
+        .describe("Filter by detection method"),
+      minConfidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum confidence score"),
+      limit: z.number().min(1).max(100).optional().describe("Maximum results"),
+      offset: z.number().min(0).optional().describe("Offset for pagination"),
+    },
+  },
+  async (args) => {
+    const result = await getCrossLayerSuggestions(
+      {
+        memoryId: args.memoryId,
+        codeNodeId: args.codeNodeId,
+        detectionMethod: args.detectionMethod,
+        minConfidence: args.minConfidence,
+        limit: args.limit ?? 20,
+        offset: args.offset ?? 0,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        { type: "text", text: JSON.stringify(result.suggestions, null, 2) },
+      ],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_review_cross_layer_suggestion",
-	{
-		title: "Review Cross-Layer Suggestion",
-		description:
-			"Approve or reject a single cross-layer relation suggestion. Approved suggestions create relations.",
-		inputSchema: {
-			suggestionId: z.string().describe("Suggestion ID to review"),
-			action: z.enum(["approve", "reject"]).describe("Action to take"),
-		},
-	},
-	async (args) => {
-		const result = await reviewCrossLayerSuggestion(
-			{
-				suggestionId: args.suggestionId,
-				action: args.action,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [{ type: "text", text: result.message }],
-		};
-	},
+  "doclea_review_cross_layer_suggestion",
+  {
+    title: "Review Cross-Layer Suggestion",
+    description:
+      "Approve or reject a single cross-layer relation suggestion. Approved suggestions create relations.",
+    inputSchema: {
+      suggestionId: z.string().describe("Suggestion ID to review"),
+      action: z.enum(["approve", "reject"]).describe("Action to take"),
+    },
+  },
+  async (args) => {
+    const result = await reviewCrossLayerSuggestion(
+      {
+        suggestionId: args.suggestionId,
+        action: args.action,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [{ type: "text", text: result.message }],
+    };
+  },
 );
 
 server.registerTool(
-	"doclea_bulk_review_cross_layer",
-	{
-		title: "Bulk Review Cross-Layer Suggestions",
-		description:
-			"Approve or reject multiple cross-layer relation suggestions at once.",
-		inputSchema: {
-			suggestionIds: z
-				.array(z.string())
-				.min(1)
-				.describe("Suggestion IDs to review"),
-			action: z.enum(["approve", "reject"]).describe("Action to take for all"),
-		},
-	},
-	async (args) => {
-		const result = await bulkReviewCrossLayer(
-			{
-				suggestionIds: args.suggestionIds,
-				action: args.action,
-			},
-			storage.getDatabase(),
-		);
-		return {
-			content: [
-				{ type: "text", text: result.message },
-				{ type: "text", text: "\n\n" },
-				{
-					type: "text",
-					text: JSON.stringify(
-						{
-							processed: result.processed,
-							relationsCreated: result.relationsCreated,
-							failed: result.failed,
-						},
-						null,
-						2,
-					),
-				},
-			],
-		};
-	},
+  "doclea_bulk_review_cross_layer",
+  {
+    title: "Bulk Review Cross-Layer Suggestions",
+    description:
+      "Approve or reject multiple cross-layer relation suggestions at once.",
+    inputSchema: {
+      suggestionIds: z
+        .array(z.string())
+        .min(1)
+        .describe("Suggestion IDs to review"),
+      action: z.enum(["approve", "reject"]).describe("Action to take for all"),
+    },
+  },
+  async (args) => {
+    const result = await bulkReviewCrossLayer(
+      {
+        suggestionIds: args.suggestionIds,
+        action: args.action,
+      },
+      storage.getDatabase(),
+    );
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n" },
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              processed: result.processed,
+              relationsCreated: result.relationsCreated,
+              failed: result.failed,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
 );
 
 // ============================================
@@ -1856,28 +1943,35 @@ server.registerTool(
   "doclea_list_pending",
   {
     title: "List Pending Memories",
-    description: "List all pending memories waiting for approval (only in suggested/manual mode)",
+    description:
+      "List all pending memories waiting for approval (only in suggested/manual mode)",
     inputSchema: {},
   },
   async () => {
     const pending = listPendingMemories(storage);
     const mode = getStorageMode(storage);
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          mode,
-          count: pending.length,
-          pending: pending.map((p) => ({
-            id: p.id,
-            title: p.memoryData.title,
-            type: p.memoryData.type,
-            suggestedAt: p.suggestedAt,
-            source: p.source,
-            reason: p.reason,
-          })),
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              mode,
+              count: pending.length,
+              pending: pending.map((p) => ({
+                id: p.id,
+                title: p.memoryData.title,
+                type: p.memoryData.type,
+                suggestedAt: p.suggestedAt,
+                source: p.source,
+                reason: p.reason,
+              })),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   },
 );
@@ -1886,17 +1980,36 @@ server.registerTool(
   "doclea_approve_pending",
   {
     title: "Approve Pending Memory",
-    description: "Approve a pending memory, committing it to storage and vector database",
+    description:
+      "Approve a pending memory, committing it to storage and vector database. Optionally override title, content, tags, or type.",
     inputSchema: {
       pendingId: z.string().describe("ID of the pending memory to approve"),
+      title: z.string().optional().describe("Override the title"),
+      content: z.string().optional().describe("Override the content"),
+      tags: z.array(z.string()).optional().describe("Override the tags"),
+      type: z
+        .enum(["decision", "solution", "pattern", "architecture", "note"])
+        .optional()
+        .describe("Override the type"),
     },
   },
   async (args) => {
+    const modifications = {
+      title: args.title,
+      content: args.content,
+      tags: args.tags,
+      type: args.type,
+    };
+    // Only pass modifications if any are provided
+    const hasModifications = Object.values(modifications).some(
+      (v) => v !== undefined,
+    );
     const result = await approvePendingMemory(
       args.pendingId,
       storage,
       vectors,
       embeddings,
+      hasModifications ? modifications : undefined,
     );
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -1916,10 +2029,12 @@ server.registerTool(
   async (args) => {
     const success = rejectPendingMemory(args.pendingId, storage);
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ success, pendingId: args.pendingId }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ success, pendingId: args.pendingId }, null, 2),
+        },
+      ],
     };
   },
 );
@@ -1928,17 +2043,32 @@ server.registerTool(
   "doclea_bulk_approve_pending",
   {
     title: "Bulk Approve Pending Memories",
-    description: "Approve multiple pending memories at once",
+    description:
+      "Approve multiple pending memories at once. If no IDs provided, approves all pending. Can filter by minimum confidence threshold.",
     inputSchema: {
-      pendingIds: z.array(z.string()).describe("IDs of pending memories to approve"),
+      pendingIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "IDs of pending memories to approve (if not provided, approves all)",
+        ),
+      minConfidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe(
+          "Only approve suggestions with importance >= this threshold (0-1)",
+        ),
     },
   },
   async (args) => {
     const result = await bulkApprovePendingMemories(
-      args.pendingIds,
       storage,
       vectors,
       embeddings,
+      args.pendingIds,
+      args.minConfidence,
     );
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -1952,7 +2082,9 @@ server.registerTool(
     title: "Bulk Reject Pending Memories",
     description: "Reject multiple pending memories at once",
     inputSchema: {
-      pendingIds: z.array(z.string()).describe("IDs of pending memories to reject"),
+      pendingIds: z
+        .array(z.string())
+        .describe("IDs of pending memories to reject"),
     },
   },
   async (args) => {
@@ -1967,17 +2099,20 @@ server.registerTool(
   "doclea_get_storage_mode",
   {
     title: "Get Storage Mode",
-    description: "Get the current storage mode (automatic, suggested, or manual)",
+    description:
+      "Get the current storage mode (automatic, suggested, or manual)",
     inputSchema: {},
   },
   async () => {
     const mode = getStorageMode(storage);
     const backend = storage.getBackendType();
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ mode, backend }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ mode, backend }, null, 2),
+        },
+      ],
     };
   },
 );
@@ -1986,22 +2121,277 @@ server.registerTool(
   "doclea_set_storage_mode",
   {
     title: "Set Storage Mode",
-    description: "Change the storage mode at runtime",
+    description:
+      "Change the storage mode at runtime. In automatic mode, optionally set a confidence threshold for auto-approval.",
     inputSchema: {
-      mode: z.enum(["manual", "suggested", "automatic"]).describe("New storage mode"),
+      mode: z
+        .enum(["manual", "suggested", "automatic"])
+        .describe(
+          "New storage mode: manual (explicit only), suggested (approval required), automatic (auto-store)",
+        ),
+      autoApproveThreshold: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe(
+          "In automatic mode, memories with importance >= this threshold are auto-approved without review (0-1)",
+        ),
     },
   },
   async (args) => {
     setStorageMode(storage, args.mode);
+
+    let description = "";
+    switch (args.mode) {
+      case "manual":
+        description = "Memories are only stored when explicitly requested.";
+        break;
+      case "suggested":
+        description =
+          "System suggests memories for your approval before storing.";
+        break;
+      case "automatic":
+        description = `System stores memories automatically.${
+          args.autoApproveThreshold
+            ? ` High confidence (≥${(args.autoApproveThreshold * 100).toFixed(0)}%) are auto-approved.`
+            : " All are marked for review."
+        }`;
+        break;
+    }
+
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          success: true,
-          newMode: args.mode,
-          message: `Storage mode changed to ${args.mode}`,
-        }, null, 2),
-      }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: true,
+              mode: args.mode,
+              autoApproveThreshold: args.autoApproveThreshold,
+              description,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+// ============================================
+// Review Queue Tools (for automatic mode)
+// ============================================
+
+server.registerTool(
+  "doclea_review_queue",
+  {
+    title: "Review Queue",
+    description:
+      "View auto-stored memories that are pending review. These are memories stored in automatic mode that may need confirmation.",
+    inputSchema: {
+      limit: z
+        .number()
+        .optional()
+        .default(20)
+        .describe("Maximum memories to return (default: 20)"),
+    },
+  },
+  async (args) => {
+    const memories = getReviewQueue(storage, args.limit ?? 20);
+
+    if (memories.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                count: 0,
+                message:
+                  "No memories pending review. All auto-stored memories have been reviewed.",
+                memories: [],
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              count: memories.length,
+              message: `${memories.length} memories pending review`,
+              memories: memories.map((m) => ({
+                id: m.id,
+                title: m.title,
+                type: m.type,
+                importance: m.importance,
+                tags: m.tags,
+                createdAt: m.createdAt,
+                contentPreview:
+                  m.content.slice(0, 200) +
+                  (m.content.length > 200 ? "..." : ""),
+              })),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_confirm",
+  {
+    title: "Confirm Memory",
+    description:
+      "Confirm an auto-stored memory is useful. Removes it from the review queue.",
+    inputSchema: {
+      memoryId: z.string().describe("ID of the memory to confirm"),
+    },
+  },
+  async (args) => {
+    const result = confirmMemory(storage, args.memoryId);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              ...result,
+              memoryId: args.memoryId,
+              message: result.success
+                ? `Memory ${args.memoryId} confirmed and removed from review queue.`
+                : `Failed to confirm memory: ${result.error}`,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+// ============================================
+// Confidence Refresh Tool
+// ============================================
+
+server.registerTool(
+  "doclea_refresh_confidence",
+  {
+    title: "Refresh Confidence",
+    description:
+      "Refresh a memory's confidence decay anchor. Resets decay to start from now, restoring confidence to its importance value. Optionally update the importance. Use this when a memory is still relevant but has decayed over time.",
+    inputSchema: {
+      memoryId: z.string().describe("ID of the memory to refresh"),
+      newImportance: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Optionally update the importance value (0-1)"),
+    },
+  },
+  async (args) => {
+    // Get decay config from scoring config if available
+    const decayConfig = config.scoring?.confidenceDecay;
+
+    const result = refreshConfidence(
+      {
+        memoryId: args.memoryId,
+        newImportance: args.newImportance,
+      },
+      storage,
+      decayConfig,
+    );
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      isError: !result.success,
+    };
+  },
+);
+
+// ============================================
+// Staleness Detection Tool
+// ============================================
+
+server.registerTool(
+  "doclea_staleness",
+  {
+    title: "Detect Memory Staleness",
+    description:
+      "Detect stale memories using multiple strategies: time decay (180 days), git file changes, related memory updates, and superseded status. Actions: 'check' single memory, 'scan' multiple memories, 'refresh' reset decay anchor.",
+    inputSchema: {
+      action: z
+        .enum(["check", "scan", "refresh"])
+        .describe(
+          "Action: 'check' single memory, 'scan' multiple memories, 'refresh' reset decay",
+        ),
+      memoryId: z
+        .string()
+        .optional()
+        .describe("Memory ID (required for check/refresh actions)"),
+      type: z
+        .string()
+        .optional()
+        .describe("Filter by memory type (for scan action)"),
+      limit: z
+        .number()
+        .min(1)
+        .max(500)
+        .optional()
+        .describe("Maximum memories to scan (default: 100)"),
+      offset: z.number().min(0).optional().describe("Pagination offset"),
+      minScore: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("Minimum staleness score to include (0-1)"),
+      newImportance: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe("New importance value for refresh action (0-1)"),
+    },
+  },
+  async (args) => {
+    const decayConfig = config.scoring?.confidenceDecay;
+
+    const result = await handleStaleness(
+      {
+        action: args.action,
+        memoryId: args.memoryId,
+        type: args.type,
+        limit: args.limit ?? 100,
+        offset: args.offset ?? 0,
+        minScore: args.minScore,
+        newImportance: args.newImportance,
+      },
+      storage,
+      undefined, // Use default staleness config
+      decayConfig,
+    );
+
+    return {
+      content: [
+        { type: "text", text: result.message },
+        { type: "text", text: "\n\n---\n\n" },
+        { type: "text", text: JSON.stringify(result.result, null, 2) },
+      ],
     };
   },
 );
@@ -2017,8 +2407,14 @@ server.registerTool(
     description: "Export all memories, documents, and relations to a JSON file",
     inputSchema: {
       outputPath: z.string().describe("Path to write the export file"),
-      includeRelations: z.boolean().optional().describe("Include memory and cross-layer relations (default: true)"),
-      includePending: z.boolean().optional().describe("Include pending memories (default: true)"),
+      includeRelations: z
+        .boolean()
+        .optional()
+        .describe("Include memory and cross-layer relations (default: true)"),
+      includePending: z
+        .boolean()
+        .optional()
+        .describe("Include pending memories (default: true)"),
     },
   },
   async (args) => {
@@ -2038,16 +2434,29 @@ server.registerTool(
 );
 
 server.registerTool(
-  "doclea_import",
+  "doclea_restore",
   {
-    title: "Import Data",
-    description: "Import memories, documents, and relations from a JSON export file",
+    title: "Restore Backup",
+    description:
+      "Restore memories, documents, and relations from a JSON export file",
     inputSchema: {
       inputPath: z.string().describe("Path to the export file to import"),
-      conflictStrategy: z.enum(["skip", "overwrite", "error"]).optional().describe("How to handle conflicts (default: skip)"),
-      reembed: z.boolean().optional().describe("Re-generate embeddings (default: false)"),
-      importRelations: z.boolean().optional().describe("Import relations (default: true)"),
-      importPending: z.boolean().optional().describe("Import pending memories (default: true)"),
+      conflictStrategy: z
+        .enum(["skip", "overwrite", "error"])
+        .optional()
+        .describe("How to handle conflicts (default: skip)"),
+      reembed: z
+        .boolean()
+        .optional()
+        .describe("Re-generate embeddings (default: false)"),
+      importRelations: z
+        .boolean()
+        .optional()
+        .describe("Import relations (default: true)"),
+      importPending: z
+        .boolean()
+        .optional()
+        .describe("Import pending memories (default: true)"),
     },
   },
   async (args) => {
@@ -2065,6 +2474,281 @@ server.registerTool(
     );
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// ============================================
+// Cache & A/B Testing Management Tools
+// ============================================
+
+server.registerTool(
+  "doclea_cache_stats",
+  {
+    title: "Get Cache Stats",
+    description:
+      "Get context cache statistics including hit rate, misses, and current entry count",
+    inputSchema: {},
+  },
+  async () => {
+    const cache = getContextCache();
+    const stats = cache.getStats();
+    const config = cache.getConfig();
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              enabled: config.enabled,
+              config: {
+                maxEntries: config.maxEntries,
+                ttlMs: config.ttlMs,
+              },
+              stats: {
+                hits: stats.hits,
+                misses: stats.misses,
+                hitRate: `${(stats.hitRate * 100).toFixed(1)}%`,
+                currentEntries: stats.currentEntries,
+                evictions: stats.evictions,
+                invalidations: stats.invalidations,
+              },
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_cache_clear",
+  {
+    title: "Clear Cache",
+    description: "Clear the context cache and optionally reset statistics",
+    inputSchema: {
+      resetStats: z
+        .boolean()
+        .optional()
+        .describe("Also reset statistics counters (default: false)"),
+    },
+  },
+  async (args) => {
+    const cache = getContextCache();
+    const entriesBefore = cache.getStats().currentEntries;
+    cache.clear();
+    if (args.resetStats) {
+      cache.resetStats();
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              success: true,
+              entriesCleared: entriesBefore,
+              statsReset: args.resetStats ?? false,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_experiment_status",
+  {
+    title: "Get Experiment Status",
+    description:
+      "Get A/B testing status including active experiments and metrics buffer status",
+    inputSchema: {},
+  },
+  async () => {
+    if (!experimentManager) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                enabled: false,
+                message: "A/B testing is not configured",
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
+    const status = experimentManager.getStatus();
+    const experiments = experimentManager.getAllExperiments();
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              enabled: status.enabled,
+              metricsEnabled: status.metricsEnabled,
+              activeExperiment: status.activeExperiment
+                ? {
+                    id: status.activeExperiment.id,
+                    name: status.activeExperiment.name,
+                    variants: status.activeExperiment.variants.map((v) => ({
+                      id: v.id,
+                      name: v.name,
+                      weight: v.weight,
+                    })),
+                  }
+                : null,
+              totalExperiments: status.totalExperiments,
+              metricsBuffer: status.bufferStatus,
+              experiments: experiments.map((exp) => ({
+                id: exp.id,
+                name: exp.name,
+                enabled: exp.enabled,
+                assignmentStrategy: exp.assignmentStrategy,
+                variantCount: exp.variants.length,
+              })),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_experiment_metrics",
+  {
+    title: "Export Experiment Metrics",
+    description:
+      "Export metrics for an A/B testing experiment. Returns aggregated stats or raw samples.",
+    inputSchema: {
+      experimentId: z.string().describe("Experiment ID to get metrics for"),
+      format: z
+        .enum(["aggregated", "raw"])
+        .default("aggregated")
+        .describe("Output format"),
+      limit: z
+        .number()
+        .min(1)
+        .max(10000)
+        .optional()
+        .describe("Max raw samples (default: 1000)"),
+      since: z
+        .number()
+        .optional()
+        .describe("Only include metrics after this timestamp (ms)"),
+    },
+  },
+  async (args) => {
+    if (!experimentManager) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                error: "A/B testing is not configured",
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const experiment = experimentManager.getExperiment(args.experimentId);
+    if (!experiment) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                error: `Experiment '${args.experimentId}' not found`,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    if (args.format === "raw") {
+      const samples = experimentManager.getMetricsSamples(
+        args.experimentId,
+        args.limit ?? 1000,
+        args.since,
+      );
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                experimentId: args.experimentId,
+                experimentName: experiment.name,
+                format: "raw",
+                sampleCount: samples.length,
+                samples,
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+
+    // Aggregated format
+    const metrics = experimentManager.getExperimentMetrics(
+      args.experimentId,
+      args.since,
+    );
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              experimentId: args.experimentId,
+              experimentName: experiment.name,
+              format: "aggregated",
+              variants: metrics.map((m) => ({
+                variantId: m.variantId,
+                requestCount: m.requestCount,
+                avgLatencyMs: m.avgLatencyMs.toFixed(2),
+                p50LatencyMs: m.p50LatencyMs.toFixed(2),
+                p95LatencyMs: m.p95LatencyMs.toFixed(2),
+                p99LatencyMs: m.p99LatencyMs.toFixed(2),
+                avgResultCount: m.avgResultCount.toFixed(2),
+                avgTopScore: m.avgTopScore.toFixed(4),
+                periodStart: m.periodStart,
+                periodEnd: m.periodEnd,
+              })),
+            },
+            null,
+            2,
+          ),
+        },
+      ],
     };
   },
 );

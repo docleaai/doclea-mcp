@@ -1,18 +1,17 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
-import type { PendingMemory } from "@/storage/types";
-import type { EmbeddingClient } from "@/embeddings/provider";
-import { type Memory, MemoryTypeSchema } from "@/types";
-import type { VectorStore } from "@/vectors/interface";
-import { MemoryRelationStorage } from "@/database/memory-relations";
-import { RelationSuggestionStorage } from "@/database/relation-suggestions";
-import { createRelationDetector } from "@/relations";
 import { CodeGraphStorage } from "@/database/code-graph";
 import { CrossLayerRelationStorage } from "@/database/cross-layer-relations";
 import { CrossLayerSuggestionStorage } from "@/database/cross-layer-suggestions";
+import { MemoryRelationStorage } from "@/database/memory-relations";
+import { RelationSuggestionStorage } from "@/database/relation-suggestions";
+import type { EmbeddingClient } from "@/embeddings/provider";
+import { createRelationDetector } from "@/relations";
 import { CrossLayerDetector } from "@/relations/cross-layer-detector";
-import { LLMTagger } from "@/tagging";
+import type { IStorageBackend } from "@/storage/interface";
+import { getTaxonomyManager, LLMTagger } from "@/tagging";
+import { type Memory, MemoryTypeSchema } from "@/types";
+import type { VectorStore } from "@/vectors/interface";
 
 export const StoreMemoryInputSchema = z.object({
   type: MemoryTypeSchema,
@@ -26,7 +25,11 @@ export const StoreMemoryInputSchema = z.object({
     .default(0.5)
     .describe("Importance score 0-1"),
   tags: z.array(z.string()).default([]).describe("Tags for categorization"),
-  autoTag: z.boolean().optional().default(false).describe("Auto-extract semantic tags via LLM"),
+  autoTag: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Auto-extract semantic tags via LLM"),
   relatedFiles: z.array(z.string()).default([]).describe("Related file paths"),
   gitCommit: z.string().optional().describe("Related git commit hash"),
   sourcePr: z.string().optional().describe("Source PR number/link"),
@@ -87,6 +90,10 @@ export async function storeMemory(
     }
   }
 
+  // Normalize tags using taxonomy (resolves aliases to canonical forms)
+  const taxonomy = getTaxonomyManager();
+  tags = taxonomy.normalizeTags(tags);
+
   // Build the memory data object (apply defaults for optional fields)
   const importance = input.importance ?? 0.5;
   const relatedFiles = input.relatedFiles ?? [];
@@ -105,6 +112,7 @@ export async function storeMemory(
     gitCommit: input.gitCommit,
     sourcePr: input.sourcePr,
     experts,
+    needsReview: false, // Default to false, can be set to true for auto-stored with low confidence
   };
 
   // Check storage mode for branching logic
@@ -115,19 +123,23 @@ export async function storeMemory(
     const pending = storage.createPendingMemory({
       memoryData,
       source: "user_store",
-      reason: mode === "suggested"
-        ? "Auto-suggested for review before storage"
-        : "Manual approval required before storage",
+      reason:
+        mode === "suggested"
+          ? "Auto-suggested for review before storage"
+          : "Manual approval required before storage",
     });
 
-    console.log(`[doclea] Created pending memory ${pending.id} (mode: ${mode})`);
+    console.log(
+      `[doclea] Created pending memory ${pending.id} (mode: ${mode})`,
+    );
 
     return {
       status: "pending",
       pendingId: pending.id,
-      message: mode === "suggested"
-        ? `Memory queued for review. Use list_pending_memories to see pending items, then approve_pending_memory to commit.`
-        : `Memory stored as pending. Manual approval required via approve_pending_memory.`,
+      message:
+        mode === "suggested"
+          ? `Memory queued for review. Use list_pending_memories to see pending items, then approve_pending_memory to commit.`
+          : `Memory stored as pending. Manual approval required via approve_pending_memory.`,
     };
   }
 
@@ -174,7 +186,10 @@ async function detectRelationsAsync(
   try {
     const rawDb = storage.getDatabase();
     const relationStorage = new MemoryRelationStorage(rawDb);
-    const suggestionStorage = new RelationSuggestionStorage(rawDb, relationStorage);
+    const suggestionStorage = new RelationSuggestionStorage(
+      rawDb,
+      relationStorage,
+    );
 
     // Create a compatible db object for the detector
     const dbCompat = {

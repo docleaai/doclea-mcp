@@ -21,6 +21,10 @@ import { migration004RelationSuggestions } from "./004_relation_suggestions";
 import { migration005CrossLayerRelations } from "./005_cross_layer_relations";
 import { migration006PendingMemories } from "./006_pending_memories";
 import { migration007AccessTracking } from "./007_access_tracking";
+import { migration008TagTaxonomy } from "./008_tag_taxonomy";
+import { migration009BackfillTags } from "./009_backfill_tags";
+import { migration010ReviewStatus } from "./010_review_status";
+import { migration011ConfidenceDecay } from "./011_confidence_decay";
 
 /**
  * All migrations in version order
@@ -34,6 +38,10 @@ export const migrations = [
   migration005CrossLayerRelations,
   migration006PendingMemories,
   migration007AccessTracking,
+  migration008TagTaxonomy,
+  migration009BackfillTags,
+  migration010ReviewStatus,
+  migration011ConfidenceDecay,
 ];
 
 /**

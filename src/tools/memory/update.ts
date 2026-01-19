@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import { type Memory, MemoryTypeSchema } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
 

@@ -95,7 +95,7 @@ export class MigrationRunner {
    * Get status of all migrations
    */
   getStatus(): MigrationStatus[] {
-    const currentVersion = this.getCurrentVersion();
+    const _currentVersion = this.getCurrentVersion();
     const appliedVersions = this.getAppliedMigrations();
 
     return this.migrations.map((migration) => {
@@ -189,7 +189,7 @@ export class MigrationRunner {
    * Get pending migrations
    */
   getPendingMigrations(targetVersion?: string): Migration[] {
-    const currentVersion = this.getCurrentVersion();
+    const _currentVersion = this.getCurrentVersion();
     const appliedVersions = this.getAppliedMigrations();
 
     return this.migrations.filter((migration) => {
@@ -326,8 +326,7 @@ export class MigrationRunner {
     const appliedVersions = this.getAppliedMigrations();
     const toRollback = this.migrations
       .filter(
-        (m) =>
-          appliedVersions.has(m.version) && m.version > targetVersion,
+        (m) => appliedVersions.has(m.version) && m.version > targetVersion,
       )
       .reverse();
 
@@ -369,8 +368,7 @@ export class MigrationRunner {
     }
 
     // Update current version
-    const newVersion =
-      targetVersion === "0" ? null : targetVersion;
+    const newVersion = targetVersion === "0" ? null : targetVersion;
     if (newVersion) {
       this.setCurrentVersion(newVersion);
     } else {

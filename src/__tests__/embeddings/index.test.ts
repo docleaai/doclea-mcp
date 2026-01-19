@@ -378,7 +378,7 @@ describe("embeddings index", () => {
   });
 
   describe("dimension detection", () => {
-    function getExpectedDimension(provider: string, model: string): number {
+    function getExpectedDimension(_provider: string, model: string): number {
       const dimensions: Record<string, number> = {
         "text-embedding-3-small": 1536,
         "text-embedding-3-large": 3072,

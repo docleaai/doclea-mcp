@@ -4,10 +4,10 @@
  * Creates the appropriate storage backend based on configuration.
  */
 
-import { join, isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import type { IStorageBackend } from "./interface";
-import { SqliteStorageBackend } from "./sqlite-backend";
 import { MemoryStorageBackend } from "./memory-backend";
+import { SqliteStorageBackend } from "./sqlite-backend";
 import type { ExtendedStorageConfig } from "./types";
 
 /**

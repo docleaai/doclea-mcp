@@ -125,6 +125,28 @@ export interface IStorageBackend {
    */
   incrementAccessCount(id: string): boolean;
 
+  /**
+   * Get memories that need review (auto-stored in automatic mode)
+   */
+  getMemoriesNeedingReview(limit?: number): Memory[];
+
+  /**
+   * Mark a memory as confirmed (no longer needs review)
+   */
+  confirmMemory(id: string): boolean;
+
+  /**
+   * Mark a memory as needing review
+   */
+  markForReview(id: string): boolean;
+
+  /**
+   * Refresh a memory's confidence decay anchor.
+   * Updates last_refreshed_at to current timestamp, optionally updates importance.
+   * Returns the updated memory or null if not found.
+   */
+  refreshMemory(id: string, newImportance?: number): Memory | null;
+
   // ============================================
   // Document/Chunk Operations
   // ============================================

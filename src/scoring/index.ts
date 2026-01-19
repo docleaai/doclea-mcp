@@ -13,16 +13,32 @@ export { generateScoreExplanation, generateScoreSummary } from "./explainer";
 // Scoring factors
 export {
   calculateConfidenceScore,
+  calculateDecayedConfidenceScore,
   calculateFrequencyScore,
   calculateRecencyScore,
   calculateSemanticScore,
+  clearDecayCache,
+  getDecayCacheStats,
 } from "./factors";
-
+// Recommended presets
+export {
+  ARCHITECTURE_FOCUSED_PRESET,
+  BALANCED_PRESET,
+  FREQUENCY_FOCUSED_PRESET,
+  getScoringPreset,
+  listScoringPresets,
+  RECENCY_FOCUSED_PRESET,
+  SCORING_PRESETS,
+  type ScoringPresetName,
+  SEMANTIC_FOCUSED_PRESET,
+} from "./recommended-configs";
 // Main scorer
 export { createEmptyBreakdown, RelevanceScorer } from "./scorer";
 export type {
   BoostCondition,
   BoostRule,
+  ConfidenceDecayConfig,
+  ConfidenceDecaySettings,
   FrequencyNormalization,
   RecencyDecay,
   ScoringConfig,
@@ -33,6 +49,8 @@ export type {
 export {
   BoostConditionSchema,
   BoostRuleSchema,
+  ConfidenceDecayConfigSchema,
+  ConfidenceDecaySettingsSchema,
   DEFAULT_SCORING_CONFIG,
   FrequencyNormalizationSchema,
   RecencyDecaySchema,

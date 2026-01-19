@@ -8,34 +8,35 @@
  * - Temporal proximity
  */
 
+// Detector
+export { createRelationDetector, RelationDetector } from "./detector";
+// Inference
+export {
+  getPossibleRelationTypes,
+  inferRelationType,
+  isValidRelationType,
+} from "./inference";
 // Types
 export type {
-	DetectionMethod,
-	SuggestionStatus,
-	ExtendedRelationType,
-	RelationSuggestion,
-	DetectionConfig,
-	RelationCandidate,
-	DetectionResult,
-	GetSuggestionsOptions,
-	BulkReviewOptions,
-	BulkReviewResult,
+  BulkReviewOptions,
+  BulkReviewResult,
+  DetectionConfig,
+  DetectionMethod,
+  DetectionResult,
+  ExtendedRelationType,
+  GetSuggestionsOptions,
+  RelationCandidate,
+  RelationSuggestion,
+  SuggestionStatus,
 } from "./types";
-
 export { DEFAULT_DETECTION_CONFIG } from "./types";
-
-// Detector
-export { RelationDetector, createRelationDetector } from "./detector";
-
-// Inference
-export { inferRelationType, getPossibleRelationTypes, isValidRelationType } from "./inference";
 
 // Utilities
 export {
-	extractKeywords,
-	calculateJaccardSimilarity,
-	calculateOverlapScore,
-	calculateFileOverlapScore,
-	getSharedFiles,
-	calculateTemporalScore,
+  calculateFileOverlapScore,
+  calculateJaccardSimilarity,
+  calculateOverlapScore,
+  calculateTemporalScore,
+  extractKeywords,
+  getSharedFiles,
 } from "./utils";

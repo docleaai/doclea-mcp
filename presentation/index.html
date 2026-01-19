@@ -1738,7 +1738,7 @@
       .bento-grid {
         grid-template-columns: 1fr;
       }
-      .bento-card { grid-column: span 1 !important; }
+      .bento-card { grid-column: span 1; }
     }
 
     .bento-card-header {
@@ -4815,10 +4815,10 @@
 
     function formatNumber(num) {
       if (num >= 1000000) {
-        return (num / 1000000).toFixed(1) + 'M';
+        return `${(num / 1000000).toFixed(1)}M`;
       }
       if (num >= 1000) {
-        return (num / 1000).toFixed(0) + 'K';
+        return `${(num / 1000).toFixed(0)}K`;
       }
       return num.toString();
     }
@@ -4829,7 +4829,7 @@
       function update(currentTime) {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const easeOut = 1 - (1 - progress) ** 3;
         const current = Math.round(start + (end - start) * easeOut);
 
         element.textContent = prefix + formatNumber(current) + suffix;
@@ -4843,8 +4843,8 @@
     }
 
     function calculateWaste() {
-      const devs = parseInt(devSlider.value);
-      const sessions = parseInt(sessionSlider.value);
+      const devs = parseInt(devSlider.value, 10);
+      const sessions = parseInt(sessionSlider.value, 10);
 
       devDisplay.textContent = devs;
       sessionDisplay.textContent = sessions;
@@ -4862,14 +4862,14 @@
       const savings = yearlyCost * 0.88;
 
       // Animate the big number
-      const currentHours = parseInt(wasteHours.textContent) || 0;
+      const currentHours = parseInt(wasteHours.textContent, 10) || 0;
       animateValue(wasteHours, currentHours, Math.round(yearlyHours), 800);
 
       // Update result cards
       tokensWasted.textContent = formatNumber(monthlyTokens);
-      moneyBurned.textContent = '$' + Math.round(yearlyCost).toLocaleString();
+      moneyBurned.textContent = `$${Math.round(yearlyCost).toLocaleString()}`;
       hoursLost.textContent = Math.round(yearlyHours);
-      potentialSavings.textContent = '$' + Math.round(savings).toLocaleString();
+      potentialSavings.textContent = `$${Math.round(savings).toLocaleString()}`;
     }
 
     devSlider.addEventListener('input', calculateWaste);
@@ -4968,11 +4968,11 @@
       for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
         particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDuration = (Math.random() * 20 + 15) + 's';
-        particle.style.animationDelay = (Math.random() * -20) + 's';
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.animationDuration = `${Math.random() * 20 + 15}s`;
+        particle.style.animationDelay = `${Math.random() * -20}s`;
         particle.style.opacity = Math.random() * 0.15 + 0.05;
-        particle.style.width = (Math.random() * 3 + 2) + 'px';
+        particle.style.width = `${Math.random() * 3 + 2}px`;
         particle.style.height = particle.style.width;
 
         container.appendChild(particle);
@@ -4987,7 +4987,7 @@
     const header = document.getElementById('header');
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     const mobileNav = document.getElementById('mobile-nav');
-    let lastScroll = 0;
+    let _lastScroll = 0;
 
     // ============================================
     // SMOOTH SCROLL FOR ANCHOR LINKS
@@ -5023,7 +5023,7 @@
         header.classList.remove('scrolled');
       }
 
-      lastScroll = currentScroll;
+      _lastScroll = currentScroll;
     });
 
     // ============================================

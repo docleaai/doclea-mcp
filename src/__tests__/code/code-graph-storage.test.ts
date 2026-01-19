@@ -609,7 +609,7 @@ describe("CodeGraphStorage", () => {
         (c) => c.node.name === "funcC",
       );
       expect(funcCChange).toBeDefined();
-      expect(["medium", "low"]).toContain(funcCChange!.severity);
+      expect(["medium", "low"]).toContain(funcCChange?.severity ?? "");
     });
 
     it("should return empty result for node without dependents", async () => {

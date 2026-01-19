@@ -4,12 +4,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { ALICE, BOB, CHARLIE, DIANA } from "../fixtures/authors";
-import {
-  INSIDE_30_DAY_WINDOW_UNIX,
-  OUTSIDE_30_DAY_WINDOW_UNIX,
-  REFERENCE_UNIX,
-} from "../fixtures/timestamps";
 
 describe("suggestReviewers helper functions", () => {
   // Constants from the source
@@ -530,7 +524,7 @@ describe("suggestReviewers helper functions", () => {
 
   describe("summary generation", () => {
     function generateSummary(
-      filesCount: number,
+      _filesCount: number,
       requiredCount: number,
       optionalCount: number,
       noOwnerCount: number,

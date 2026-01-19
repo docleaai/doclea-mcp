@@ -1,3 +1,4 @@
+export { stableHash, stableStringify } from "./json";
 export {
   countTokens,
   countTokensBatch,
@@ -5,7 +6,7 @@ export {
   getTokenInfo,
   getTokenizer,
   splitIntoTokenChunks,
-  truncateToTokens,
   TOKENIZER_MODELS,
   type TokenizerModelName,
+  truncateToTokens,
 } from "./tokens";

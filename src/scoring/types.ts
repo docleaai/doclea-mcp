@@ -134,6 +134,46 @@ export const BoostRuleSchema = z.object({
 export type BoostRule = z.infer<typeof BoostRuleSchema>;
 
 // ============================================
+// Confidence Decay Configuration
+// ============================================
+
+export const NoDecaySchema = z.object({
+  type: z.literal("none"),
+});
+
+export const ConfidenceDecaySettingsSchema = z.discriminatedUnion("type", [
+  ExponentialDecaySchema,
+  LinearDecaySchema,
+  StepDecaySchema,
+  NoDecaySchema,
+]);
+export type ConfidenceDecaySettings = z.infer<
+  typeof ConfidenceDecaySettingsSchema
+>;
+
+export const ConfidenceDecayConfigSchema = z.object({
+  /** Enable confidence decay (opt-in, disabled by default) */
+  enabled: z.boolean().default(false),
+  /** Decay function configuration */
+  decay: ConfidenceDecaySettingsSchema.default({
+    type: "exponential",
+    halfLifeDays: 90,
+  }),
+  /** Minimum effective confidence (decayed score won't go below this) */
+  floor: z.number().min(0).max(1).default(0.1),
+  /**
+   * Virtual refresh on access - when true, uses accessedAt as anchor if no
+   * explicit last_refreshed_at is set. This is VIRTUAL ONLY - no DB writes on read.
+   */
+  refreshOnAccess: z.boolean().default(true),
+  /** Memory types exempt from decay (e.g., architecture decisions) */
+  exemptTypes: z.array(z.string()).default(["architecture"]),
+  /** Tags that exempt a memory from decay (e.g., 'pinned') */
+  exemptTags: z.array(z.string()).default(["pinned"]),
+});
+export type ConfidenceDecayConfig = z.infer<typeof ConfidenceDecayConfigSchema>;
+
+// ============================================
 // Main Scoring Configuration
 // ============================================
 
@@ -162,6 +202,8 @@ export const ScoringConfigSchema = z.object({
   boostRules: z.array(BoostRuleSchema).default([]),
   /** Multiplier for overfetching from vector search (fetch N * limit, then re-rank) */
   searchOverfetch: z.number().positive().default(3),
+  /** Confidence decay configuration (opt-in) */
+  confidenceDecay: ConfidenceDecayConfigSchema.optional(),
 });
 export type ScoringConfig = z.infer<typeof ScoringConfigSchema>;
 
@@ -180,7 +222,8 @@ export type ScoringContext = z.infer<typeof ScoringContextSchema>;
 // ============================================
 
 export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
-  enabled: false,
+  /** Enable by default, can be disabled via DOCLEA_SCORING_ENABLED=false */
+  enabled: process.env.DOCLEA_SCORING_ENABLED !== "false",
   weights: {
     semantic: 0.5,
     recency: 0.2,
@@ -201,6 +244,11 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
       name: "recent-boost",
       condition: { type: "recency", maxDays: 7 },
       factor: 1.2,
+    },
+    {
+      name: "high-importance-boost",
+      condition: { type: "importance", minValue: 0.8 },
+      factor: 1.15,
     },
     {
       name: "stale-penalty",

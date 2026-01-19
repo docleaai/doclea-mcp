@@ -9,13 +9,13 @@
 import type { Migration, MigrationDatabase } from "./types";
 
 export const migration006PendingMemories: Migration = {
-	version: "006",
-	name: "pending_memories",
-	destructive: false,
+  version: "006",
+  name: "pending_memories",
+  destructive: false,
 
-	up(db: MigrationDatabase): void {
-		// Create pending_memories table
-		db.exec(`
+  up(db: MigrationDatabase): void {
+    // Create pending_memories table
+    db.exec(`
 			CREATE TABLE IF NOT EXISTS pending_memories (
 				id TEXT PRIMARY KEY,
 				memory_data TEXT NOT NULL,
@@ -26,20 +26,20 @@ export const migration006PendingMemories: Migration = {
 			)
 		`);
 
-		// Create index for efficient queries by suggested_at
-		db.exec(`
+    // Create index for efficient queries by suggested_at
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_pending_memories_suggested_at
 			ON pending_memories(suggested_at)
 		`);
 
-		// Create index for source filtering
-		db.exec(`
+    // Create index for source filtering
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_pending_memories_source
 			ON pending_memories(source)
 		`);
-	},
+  },
 
-	down(db: MigrationDatabase): void {
-		db.exec("DROP TABLE IF EXISTS pending_memories");
-	},
+  down(db: MigrationDatabase): void {
+    db.exec("DROP TABLE IF EXISTS pending_memories");
+  },
 };

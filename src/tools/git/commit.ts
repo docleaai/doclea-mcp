@@ -1,7 +1,7 @@
 import simpleGit from "simple-git";
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import type { Memory } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
 
@@ -102,7 +102,7 @@ interface RelatedMemory {
 
 async function findRelatedMemories(
   analysis: DiffAnalysis,
-  diff: string,
+  _diff: string,
   storage: IStorageBackend,
   vectors: VectorStore,
   embeddings: EmbeddingClient,

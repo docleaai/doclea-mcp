@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import type { Memory, CreateMemory, Document, Chunk } from "@/types";
+import type { Chunk, CreateMemory, Document, Memory } from "@/types";
 
 // Storage backend type
 export const StorageBackendTypeSchema = z.enum(["sqlite", "memory"]);

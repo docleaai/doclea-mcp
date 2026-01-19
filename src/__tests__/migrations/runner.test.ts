@@ -637,7 +637,7 @@ describe("MigrationRunner", () => {
       await runner.migrate();
 
       expect(getResult).toBeDefined();
-      expect(getResult!.name).toBe("Test");
+      expect(getResult?.name).toBe("Test");
       runner.close();
     });
   });

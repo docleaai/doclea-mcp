@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { z } from "zod";
-import type { IStorageBackend } from "@/storage/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import { storeMemory } from "@/tools/memory";
 import type { MemoryType } from "@/types";
 import type { VectorStore } from "@/vectors/interface";
@@ -145,7 +145,7 @@ interface ParsedADR {
   tags: string[];
 }
 
-function parseADR(content: string, filename: string): ParsedADR | null {
+function parseADR(content: string, _filename: string): ParsedADR | null {
   // Try to parse ADR format (MADR or similar)
   const titleMatch = content.match(/^#\s+(.+)$/m);
   const statusMatch = content.match(/##\s*Status\s*\n+(\w+)/i);

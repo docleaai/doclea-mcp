@@ -6,9 +6,9 @@
  */
 
 import { Database } from "bun:sqlite";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { migrations } from "@/migrations";
-import type { Migration, MigrationDatabase } from "@/migrations/types";
+import type { MigrationDatabase } from "@/migrations/types";
 import type {
   Chunk,
   CreateMemory,
@@ -285,6 +285,23 @@ export class MemoryStorageBackend implements IStorageBackend {
       fields.push("qdrant_id = ?");
       values.push(updates.qdrantId);
     }
+    // Handle confidence decay fields
+    if (updates.decayRate !== undefined) {
+      fields.push("decay_rate = ?");
+      values.push(updates.decayRate);
+    }
+    if (updates.lastRefreshedAt !== undefined) {
+      fields.push("last_refreshed_at = ?");
+      values.push(updates.lastRefreshedAt);
+    }
+    if (updates.confidenceFloor !== undefined) {
+      fields.push("confidence_floor = ?");
+      values.push(updates.confidenceFloor);
+    }
+    if (updates.decayFunction !== undefined) {
+      fields.push("decay_function = ?");
+      values.push(updates.decayFunction);
+    }
 
     if (fields.length === 0) return existing;
 
@@ -428,6 +445,72 @@ export class MemoryStorageBackend implements IStorageBackend {
     `);
     const result = stmt.run(now, id);
     return result.changes > 0;
+  }
+
+  /**
+   * Get memories that need review (auto-stored in automatic mode)
+   */
+  getMemoriesNeedingReview(limit = 50): Memory[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM memories
+      WHERE needs_review = 1
+      ORDER BY created_at DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(limit) as MemoryRow[];
+    return rows.map((row) => this.rowToMemory(row));
+  }
+
+  /**
+   * Mark a memory as confirmed (no longer needs review)
+   */
+  confirmMemory(id: string): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE memories SET needs_review = 0 WHERE id = ?
+    `);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Mark a memory as needing review
+   */
+  markForReview(id: string): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE memories SET needs_review = 1 WHERE id = ?
+    `);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Refresh a memory's confidence decay anchor.
+   * Updates last_refreshed_at to current timestamp, optionally updates importance.
+   * Returns the updated memory or null if not found.
+   */
+  refreshMemory(id: string, newImportance?: number): Memory | null {
+    const existing = this.getMemory(id);
+    if (!existing) return null;
+
+    const now = Math.floor(Date.now() / 1000);
+
+    if (newImportance !== undefined) {
+      const stmt = this.db.prepare(`
+        UPDATE memories
+        SET last_refreshed_at = ?, importance = ?, accessed_at = ?
+        WHERE id = ?
+      `);
+      stmt.run(now, newImportance, now, id);
+    } else {
+      const stmt = this.db.prepare(`
+        UPDATE memories
+        SET last_refreshed_at = ?, accessed_at = ?
+        WHERE id = ?
+      `);
+      stmt.run(now, now, id);
+    }
+
+    return this.getMemory(id);
   }
 
   // ============================================
@@ -606,8 +689,14 @@ export class MemoryStorageBackend implements IStorageBackend {
       qdrantId: row.qdrant_id ?? undefined,
       createdAt: row.created_at,
       accessedAt: row.accessed_at,
-      accessCount:
-        (row as MemoryRow & { access_count?: number }).access_count ?? 0,
+      accessCount: row.access_count ?? 0,
+      needsReview: (row.needs_review ?? 0) === 1,
+      // Confidence decay fields
+      decayRate: row.decay_rate ?? undefined,
+      lastRefreshedAt: row.last_refreshed_at ?? undefined,
+      confidenceFloor: row.confidence_floor ?? undefined,
+      decayFunction:
+        (row.decay_function as Memory["decayFunction"]) ?? undefined,
     };
   }
 
@@ -660,6 +749,13 @@ interface MemoryRow {
   qdrant_id: string | null;
   created_at: number;
   accessed_at: number;
+  access_count: number | null;
+  needs_review: number | null;
+  // Confidence decay fields
+  decay_rate: number | null;
+  last_refreshed_at: number | null;
+  confidence_floor: number | null;
+  decay_function: string | null;
 }
 
 interface DocumentRow {

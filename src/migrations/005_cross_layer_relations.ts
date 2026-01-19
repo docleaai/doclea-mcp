@@ -11,13 +11,13 @@
 import type { Migration, MigrationDatabase } from "./types";
 
 export const migration005CrossLayerRelations: Migration = {
-	version: "005",
-	name: "cross_layer_relations",
-	destructive: false,
+  version: "005",
+  name: "cross_layer_relations",
+  destructive: false,
 
-	up(db: MigrationDatabase): void {
-		// Create cross_layer_relations table
-		db.exec(`
+  up(db: MigrationDatabase): void {
+    // Create cross_layer_relations table
+    db.exec(`
 			CREATE TABLE IF NOT EXISTS cross_layer_relations (
 				id TEXT PRIMARY KEY,
 				memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
@@ -31,29 +31,29 @@ export const migration005CrossLayerRelations: Migration = {
 			)
 		`);
 
-		// Create indexes for efficient queries
-		db.exec(`
+    // Create indexes for efficient queries
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_layer_memory
 			ON cross_layer_relations(memory_id)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_layer_code
 			ON cross_layer_relations(code_node_id)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_layer_type
 			ON cross_layer_relations(relation_type)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_layer_direction
 			ON cross_layer_relations(direction)
 		`);
 
-		// Create cross_layer_suggestions table for pending suggestions
-		db.exec(`
+    // Create cross_layer_suggestions table for pending suggestions
+    db.exec(`
 			CREATE TABLE IF NOT EXISTS cross_layer_suggestions (
 				id TEXT PRIMARY KEY,
 				memory_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
@@ -70,30 +70,30 @@ export const migration005CrossLayerRelations: Migration = {
 			)
 		`);
 
-		// Create indexes for suggestions
-		db.exec(`
+    // Create indexes for suggestions
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_suggestions_status
 			ON cross_layer_suggestions(status)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_suggestions_memory
 			ON cross_layer_suggestions(memory_id)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_suggestions_code
 			ON cross_layer_suggestions(code_node_id)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_cross_suggestions_created
 			ON cross_layer_suggestions(created_at)
 		`);
-	},
+  },
 
-	down(db: MigrationDatabase): void {
-		db.exec("DROP TABLE IF EXISTS cross_layer_suggestions");
-		db.exec("DROP TABLE IF EXISTS cross_layer_relations");
-	},
+  down(db: MigrationDatabase): void {
+    db.exec("DROP TABLE IF EXISTS cross_layer_suggestions");
+    db.exec("DROP TABLE IF EXISTS cross_layer_relations");
+  },
 };

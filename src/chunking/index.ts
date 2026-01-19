@@ -4,6 +4,18 @@
  * Provides intelligent chunking for markdown and code files
  */
 
+// Code chunking (Tree-sitter based)
+export {
+  type CodeChunk,
+  type CodeChunkMetadata,
+  type CodeChunkOptions,
+  chunkCode,
+  chunkCodeFallback,
+  chunkCodeFile,
+  detectLanguage,
+  getSupportedExtensions,
+  type SupportedLanguage,
+} from "./code";
 // Markdown chunking
 export {
   chunkMarkdown,
@@ -13,16 +25,3 @@ export {
   type MarkdownChunkMetadata,
   type MarkdownChunkOptions,
 } from "./markdown";
-
-// Code chunking (Tree-sitter based)
-export {
-  chunkCode,
-  chunkCodeFile,
-  chunkCodeFallback,
-  detectLanguage,
-  getSupportedExtensions,
-  type CodeChunk,
-  type CodeChunkMetadata,
-  type CodeChunkOptions,
-  type SupportedLanguage,
-} from "./code";

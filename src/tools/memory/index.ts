@@ -11,8 +11,8 @@ export {
 } from "./search";
 export {
   type StoreMemoryInput,
-  type StoreMemoryResult,
   StoreMemoryInputSchema,
+  type StoreMemoryResult,
   storeMemory,
 } from "./store";
 export {

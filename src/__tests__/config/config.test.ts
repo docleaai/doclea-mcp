@@ -272,7 +272,7 @@ describe("config", () => {
 
     const DEFAULT_CONFIG: Config = {
       embedding: { provider: "transformers", model: "mxbai-embed-xsmall-v1" },
-      vector: { provider: "sqlite-vec", dbPath: ".doclea/vectors.db" },
+      vector: { provider: "libsql", dbPath: ".doclea/vectors.db" },
       storage: { dbPath: ".doclea/local.db" },
     };
 
@@ -303,7 +303,7 @@ describe("config", () => {
     test("uses embedded backends when no services running", () => {
       const config = simulateDetectConfig(false, false);
       expect(config.embedding.provider).toBe("transformers");
-      expect(config.vector.provider).toBe("sqlite-vec");
+      expect(config.vector.provider).toBe("libsql");
     });
 
     test("uses Qdrant when running", () => {
@@ -335,10 +335,10 @@ describe("config", () => {
   });
 
   describe("vector config extraction (new schema)", () => {
-    type VectorProvider = "sqlite-vec" | "qdrant";
+    type _VectorProvider = "libsql" | "qdrant";
 
-    interface SqliteVecConfig {
-      provider: "sqlite-vec";
+    interface LibSqlConfig {
+      provider: "libsql";
       dbPath: string;
       vectorSize?: number;
     }
@@ -350,17 +350,17 @@ describe("config", () => {
       collectionName: string;
     }
 
-    type VectorConfig = SqliteVecConfig | QdrantConfig;
+    type VectorConfig = LibSqlConfig | QdrantConfig;
 
     function extractVectorConfig(
       config: Record<string, unknown>,
     ): VectorConfig | null {
       if (typeof config.provider !== "string") return null;
 
-      if (config.provider === "sqlite-vec") {
+      if (config.provider === "libsql") {
         if (typeof config.dbPath !== "string") return null;
         return {
-          provider: "sqlite-vec",
+          provider: "libsql",
           dbPath: config.dbPath,
           vectorSize:
             typeof config.vectorSize === "number"
@@ -387,16 +387,16 @@ describe("config", () => {
       return null;
     }
 
-    test("extracts sqlite-vec config", () => {
+    test("extracts libsql config", () => {
       const config = {
-        provider: "sqlite-vec",
+        provider: "libsql",
         dbPath: ".doclea/vectors.db",
         vectorSize: 384,
       };
       const extracted = extractVectorConfig(config);
-      expect(extracted?.provider).toBe("sqlite-vec");
-      expect((extracted as SqliteVecConfig)?.dbPath).toBe(".doclea/vectors.db");
-      expect((extracted as SqliteVecConfig)?.vectorSize).toBe(384);
+      expect(extracted?.provider).toBe("libsql");
+      expect((extracted as LibSqlConfig)?.dbPath).toBe(".doclea/vectors.db");
+      expect((extracted as LibSqlConfig)?.vectorSize).toBe(384);
     });
 
     test("extracts qdrant config", () => {

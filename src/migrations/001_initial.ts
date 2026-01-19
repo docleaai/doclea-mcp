@@ -68,9 +68,7 @@ export const migration001Initial: Migration = {
     `);
 
     // Create indexes
-    db.exec(
-      "CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)",
-    );
+    db.exec("CREATE INDEX IF NOT EXISTS idx_memories_type ON memories(type)");
     db.exec(
       "CREATE INDEX IF NOT EXISTS idx_memories_qdrant ON memories(qdrant_id)",
     );

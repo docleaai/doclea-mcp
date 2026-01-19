@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeAll } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
   chunkCode,
-  chunkCodeFile,
   chunkCodeFallback,
+  chunkCodeFile,
   detectLanguage,
   getSupportedExtensions,
-  type SupportedLanguage,
 } from "../../chunking/code";
 
 describe("Code Chunking", () => {
@@ -354,7 +353,9 @@ type User struct {
 
       const chunks = await chunkCode(code, "go");
 
-      const typeChunk = chunks.find((c) => c.metadata.nodeType === "type_declaration");
+      const typeChunk = chunks.find(
+        (c) => c.metadata.nodeType === "type_declaration",
+      );
       expect(typeChunk).toBeDefined();
       expect(typeChunk?.metadata.isClass).toBe(true);
     });
@@ -378,7 +379,9 @@ func (c *Calculator) GetResult() int {
 
       const chunks = await chunkCode(code, "go");
 
-      const methodChunks = chunks.filter((c) => c.metadata.nodeType === "method_declaration");
+      const methodChunks = chunks.filter(
+        (c) => c.metadata.nodeType === "method_declaration",
+      );
       expect(methodChunks.length).toBe(2);
     });
 
@@ -433,7 +436,9 @@ struct User {
 
       const chunks = await chunkCode(code, "rust");
 
-      const structChunk = chunks.find((c) => c.metadata.nodeType === "struct_item");
+      const structChunk = chunks.find(
+        (c) => c.metadata.nodeType === "struct_item",
+      );
       expect(structChunk).toBeDefined();
       expect(structChunk?.metadata.isClass).toBe(true);
     });
@@ -524,9 +529,7 @@ fn main() {
 
   describe("chunkCodeFallback", () => {
     it("should chunk by lines", async () => {
-      const code = Array(100)
-        .fill("const x = 1;")
-        .join("\n");
+      const code = Array(100).fill("const x = 1;").join("\n");
 
       const chunks = await chunkCodeFallback(code, "test.txt", {
         maxTokens: 50,
@@ -641,7 +644,7 @@ const emoji = "🚀";
     });
 
     it("should handle very long lines", async () => {
-      const longLine = "const x = " + JSON.stringify("a".repeat(1000)) + ";";
+      const longLine = `const x = ${JSON.stringify("a".repeat(1000))};`;
 
       const chunks = await chunkCode(longLine, "typescript");
       expect(chunks.length).toBeGreaterThanOrEqual(1);

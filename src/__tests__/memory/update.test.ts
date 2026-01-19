@@ -280,7 +280,7 @@ describe("updateMemory", () => {
     }
 
     function extractUpdates(input: Input): Omit<Input, "id"> {
-      const { id, ...updates } = input;
+      const { id: _id, ...updates } = input;
       return updates;
     }
 

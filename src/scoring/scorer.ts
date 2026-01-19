@@ -14,6 +14,7 @@ import type {
 import { applyBoosts, evaluateBoostRules } from "./boost-rules";
 import {
   calculateConfidenceScore,
+  calculateDecayedConfidenceScore,
   calculateFrequencyScore,
   calculateRecencyScore,
   calculateSemanticScore,
@@ -91,7 +92,10 @@ export class RelevanceScorer {
       config.recencyDecay,
       now,
     );
-    const confidence = calculateConfidenceScore(memory.importance);
+    // Use decayed confidence if enabled, otherwise use raw importance
+    const confidence = config.confidenceDecay?.enabled
+      ? calculateDecayedConfidenceScore(memory, config.confidenceDecay, now)
+      : calculateConfidenceScore(memory.importance);
     const frequency = calculateFrequencyScore(
       memory.accessCount,
       config.frequencyNormalization,

@@ -1,19 +1,21 @@
 ---
 sidebar_position: 1
 title: API Overview
-description: Complete reference for all 15 Doclea MCP tools. Memory, Git, Expertise, and Bootstrap operations.
-keywords: [API, MCP tools, reference, doclea_store, doclea_search]
+description: Complete reference for all 55+ Doclea MCP tools. Memory, relations, code scanning, workflow, context building, and more.
+keywords: [API, MCP tools, reference, doclea, RAG, KAG, relations]
 ---
 
 # API Overview
 
-Doclea provides **15 MCP tools** across four categories. Use natural language with Claude, or invoke tools directly.
+Doclea provides **55+ MCP tools** across twelve categories. Use natural language with Claude, or invoke tools directly.
 
 ---
 
 ## All Tools at a Glance
 
-### Memory Tools
+### Memory Tools (5)
+
+Core memory storage and retrieval.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
@@ -23,27 +25,149 @@ Doclea provides **15 MCP tools** across four categories. Use natural language wi
 | [`doclea_update`](./memory/update) | Modify memory | "Update that memory to add..." |
 | [`doclea_delete`](./memory/delete) | Remove memory | "Delete the memory about..." |
 
-### Git Tools
+### Memory Relations (4)
+
+Link memories into a knowledge graph.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_link_memories`](./relations/link-memories) | Create relationship | "Link auth decision to JWT pattern" |
+| [`doclea_get_related`](./relations/get-related) | Find related memories | "What relates to the caching decision?" |
+| [`doclea_find_path`](./relations/find-path) | Find connection path | "How is auth connected to payments?" |
+| [`doclea_unlink_memories`](./relations/unlink-memories) | Remove relationship | (Used internally) |
+
+### Relation Detection (4)
+
+Auto-detect relationships between memories.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_detect_relations`](./detection/detect-relations) | Trigger detection | "Detect relations for this memory" |
+| [`doclea_get_suggestions`](./detection/get-suggestions) | View suggestions | "Show pending relation suggestions" |
+| [`doclea_review_suggestion`](./detection/review-suggestion) | Accept/reject | "Accept that relation suggestion" |
+| [`doclea_bulk_review`](./detection/bulk-review) | Batch decisions | "Accept all high-confidence suggestions" |
+
+### Cross-Layer Relations (7)
+
+Bridge code and memories (KAG ↔ RAG).
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_suggest_crosslayer`](./cross-layer/suggest-crosslayer) | Detect code-memory links | "Find code related to auth decision" |
+| [`doclea_suggest_relations`](./cross-layer/suggest-relations) | Bidirectional detection | "What relates to this code/memory?" |
+| [`doclea_get_code_for_memory`](./cross-layer/get-code-for-memory) | Code for a memory | "What code implements this pattern?" |
+| [`doclea_get_memories_for_code`](./cross-layer/get-memories-for-code) | Memories for code | "What decisions affect this file?" |
+| [`doclea_get_crosslayer_suggestions`](./cross-layer/get-crosslayer-suggestions) | View suggestions | "Show pending cross-layer links" |
+| [`doclea_review_crosslayer`](./cross-layer/review-crosslayer) | Review suggestion | "Accept that code-memory link" |
+| [`doclea_bulk_review_crosslayer`](./cross-layer/bulk-review-crosslayer) | Batch decisions | "Accept all cross-layer suggestions" |
+
+### Code Scanning / KAG (11)
+
+Knowledge-Aware Graph from code structure.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_scan_code`](./code/scan-code) | Scan codebase | "Scan src/ for code structure" |
+| [`doclea_stop_watch`](./code/stop-watch) | Stop file watcher | "Stop watching for changes" |
+| [`doclea_get_code_node`](./code/get-node) | Get node details | "Show details for UserService class" |
+| [`doclea_call_graph`](./code/call-graph) | Call relationships | "What does authenticate() call?" |
+| [`doclea_impact_analysis`](./code/impact-analysis) | Change impact | "What's affected if I change validateToken?" |
+| [`doclea_find_implementations`](./code/find-implementations) | Interface implementations | "What implements IAuthProvider?" |
+| [`doclea_dependency_tree`](./code/dependency-tree) | Module dependencies | "Show dependency tree for auth module" |
+| [`doclea_summarize_code`](./code/summarize) | Run summarization | "Summarize the payment service" |
+| [`doclea_update_code_summary`](./code/update-code-summary) | Update single summary | "Update summary for this function" |
+| [`doclea_get_unsummarized`](./code/get-unsummarized) | Get nodes needing AI | "Get code needing summaries" |
+| [`doclea_batch_update_summaries`](./code/batch-update-summaries) | Batch update | "Update these summaries" |
+
+### Workflow & Approval (10)
+
+Manage storage modes and pending memories.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_set_storage_mode`](./workflow/set-storage-mode) | Set mode | "Switch to manual storage mode" |
+| [`doclea_get_storage_mode`](./workflow/get-storage-mode) | Check mode | "What's the current storage mode?" |
+| [`doclea_list_pending`](./workflow/list-pending) | View pending | "Show pending memories" |
+| [`doclea_approve_pending`](./workflow/approve-pending) | Approve one | "Approve pending memory X" |
+| [`doclea_reject_pending`](./workflow/reject-pending) | Reject one | "Reject that pending memory" |
+| [`doclea_bulk_approve`](./workflow/bulk-approve-pending) | Approve batch | "Approve all pending memories" |
+| [`doclea_bulk_reject`](./workflow/bulk-reject-pending) | Reject batch | "Reject all low-confidence pending" |
+| [`doclea_review_queue`](./workflow/review-queue) | Auto-stored queue | "Show memories needing review" |
+| [`doclea_confirm`](./workflow/confirm-memory) | Confirm reviewed | "Confirm that memory is good" |
+| [`doclea_refresh_confidence`](./workflow/refresh-confidence) | Refresh decay | "Refresh confidence for this memory" |
+
+### Context Building (1)
+
+Assemble RAG + KAG context.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_context`](./context/build-context) | Build context | "Build context about authentication" |
+
+### Token Budget (3)
+
+Manage token allocation.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_allocate_budget`](./budget/allocate-budget) | Allocate tokens | "Allocate budget for Claude Sonnet" |
+| [`doclea_model_windows`](./budget/model-windows) | Model limits | "What are model context windows?" |
+| [`doclea_budget_presets`](./budget/budget-presets) | Preset configs | "Show available budget presets" |
+
+### Export/Import (2)
+
+Backup and restore data.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_export`](./backup/export) | Export data | "Export all data to backup.json" |
+| [`doclea_import`](./backup/import) | Import data | "Import from backup.json" |
+
+### Cache & A/B Testing (4)
+
+Performance and experimentation.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_cache_stats`](./testing/cache-stats) | Cache statistics | "Show cache performance" |
+| [`doclea_cache_clear`](./testing/cache-clear) | Clear cache | "Clear the context cache" |
+| [`doclea_experiment_status`](./testing/experiment-status) | Experiment status | "Show A/B test status" |
+| [`doclea_experiment_metrics`](./testing/experiment-metrics) | Export metrics | "Export experiment results" |
+
+### Git Tools (3)
+
+Generate commit messages and changelogs.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
 | [`doclea_commit_message`](./git/commit-message) | Generate commit | "Generate a commit message" |
-| [`doclea_pr_description`](./git/pr-description) | Generate PR description | "Create a PR description" |
+| [`doclea_pr_description`](./git/pr-description) | Generate PR | "Create a PR description" |
 | [`doclea_changelog`](./git/changelog) | Generate changelog | "Generate changelog since v1.0" |
 
-### Expertise Tools
+### Expertise Tools (2)
+
+Code ownership and reviewers.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
-| [`doclea_expertise`](./expertise/mapping) | Map code ownership | "Who owns the payment module?" |
+| [`doclea_expertise`](./expertise/mapping) | Map ownership | "Who owns the payment module?" |
 | [`doclea_suggest_reviewers`](./expertise/reviewers) | Suggest reviewers | "Suggest reviewers for this PR" |
 
-### Bootstrap Tools
+### Bootstrap Tools (1)
+
+Initialize projects.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
 | [`doclea_init`](./bootstrap/init) | Initialize project | "Initialize doclea for this project" |
-| [`doclea_import`](./bootstrap/import) | Import from files | "Import decisions from docs/adr/" |
+
+### Maintenance Tools (1)
+
+Detect and refresh stale memories.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_staleness`](./staleness/overview) | Detect stale | "Scan memories for staleness" |
 
 ---
 
@@ -63,8 +187,6 @@ When storing memories, specify a type:
 
 ## Common Parameters
 
-These parameters appear across multiple tools:
-
 ### `importance` (0-1)
 
 Priority score affecting search ranking.
@@ -75,7 +197,6 @@ Priority score affecting search ranking.
 | 0.7-0.8 | Important patterns/solutions |
 | 0.5-0.6 | Standard documentation |
 | 0.3-0.4 | Minor notes |
-| 0.0-0.2 | Low priority |
 
 ### `tags` (string[])
 
@@ -87,42 +208,25 @@ Categories for filtering. Use 2-5 focused tags.
 
 ### `relatedFiles` (string[])
 
-File paths for context. Helps with search relevance.
-
-```json
-{
-  "relatedFiles": ["src/auth/jwt.ts", "src/middleware/auth.ts"]
-}
-```
+File paths for context. Helps with search relevance and cross-layer detection.
 
 ---
 
-## Tool Relationships
+## Architecture
 
-```mermaid
-graph TD
-    subgraph Bootstrap
-        A[doclea_init] --> B[doclea_store]
-        C[doclea_import] --> B
-    end
-
-    subgraph Memory
-        B --> D[doclea_search]
-        D --> E[doclea_get]
-        E --> F[doclea_update]
-        E --> G[doclea_delete]
-    end
-
-    subgraph Git
-        D --> H[doclea_commit_message]
-        D --> I[doclea_pr_description]
-        D --> J[doclea_changelog]
-    end
-
-    subgraph Expertise
-        D --> K[doclea_expertise]
-        D --> L[doclea_suggest_reviewers]
-    end
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        MCP Tools                             │
+├─────────────┬─────────────┬─────────────┬──────────────────┤
+│   Memory    │  Relations  │   Context   │   Code (KAG)     │
+│   (RAG)     │   (Graph)   │  Building   │   Scanning       │
+├─────────────┴─────────────┴─────────────┴──────────────────┤
+│                     Storage Layer                           │
+│              SQLite + Vector Store                          │
+├─────────────────────────────────────────────────────────────┤
+│                    Embeddings                               │
+│      Transformers / OpenAI / Voyage / Nomic / Ollama       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -156,19 +260,9 @@ All tools return MCP-standard responses:
 
 ---
 
-## Performance
-
-| Operation | Zero-Config | Docker |
-|-----------|-------------|--------|
-| First embedding | 2-5s | &lt;100ms |
-| Store memory | 100-250ms | 50-100ms |
-| Search (10k memories) | 50-200ms | 20-50ms |
-| Generate commit | 200-500ms | 100-200ms |
-
----
-
 ## Next Steps
 
 - [doclea_store](./memory/store) - Store your first memory
 - [doclea_search](./memory/search) - Find relevant context
-- [doclea_init](./bootstrap/init) - Bootstrap a new project
+- [doclea_context](./context/build-context) - Build RAG+KAG context
+- [doclea_scan_code](./code/scan-code) - Index your codebase

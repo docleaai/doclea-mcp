@@ -5,19 +5,19 @@
  * Supports conflict resolution strategies and optional re-embedding.
  */
 
+import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
-import { readFileSync, existsSync } from "node:fs";
-import { randomUUID } from "crypto";
-import type { IStorageBackend } from "@/storage/interface";
-import type { VectorStore } from "@/vectors/interface";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import type { IStorageBackend } from "@/storage/interface";
 import type {
-  StorageExport,
   ImportConflictStrategy,
   ImportResult,
   PendingMemory,
+  StorageExport,
 } from "@/storage/types";
-import type { Memory, Document, Chunk } from "@/types";
+import type { Chunk, Document, Memory } from "@/types";
+import type { VectorStore } from "@/vectors/interface";
 
 export const ImportInputSchema = z.object({
   inputPath: z.string().describe("Path to the export file to import"),
@@ -29,7 +29,10 @@ export const ImportInputSchema = z.object({
     .boolean()
     .default(false)
     .describe("Re-generate embeddings (required if embedding model changed)"),
-  importRelations: z.boolean().default(true).describe("Import memory and cross-layer relations"),
+  importRelations: z
+    .boolean()
+    .default(true)
+    .describe("Import memory and cross-layer relations"),
   importPending: z.boolean().default(true).describe("Import pending memories"),
 });
 
@@ -232,6 +235,7 @@ async function importMemories(
         gitCommit: memory.gitCommit,
         sourcePr: memory.sourcePr,
         experts: memory.experts,
+        needsReview: (memory as any).needsReview ?? false,
       });
 
       result.imported++;
@@ -352,7 +356,9 @@ function importRelations_(
   for (const relation of memoryRelations) {
     try {
       // Check for existing relation
-      const existingStmt = db.prepare("SELECT id FROM memory_relations WHERE id = ?");
+      const existingStmt = db.prepare(
+        "SELECT id FROM memory_relations WHERE id = ?",
+      );
       const existing = existingStmt.get(relation.id);
 
       if (existing) {
@@ -364,7 +370,9 @@ function importRelations_(
           continue;
         }
         // overwrite: delete existing first
-        const deleteStmt = db.prepare("DELETE FROM memory_relations WHERE id = ?");
+        const deleteStmt = db.prepare(
+          "DELETE FROM memory_relations WHERE id = ?",
+        );
         deleteStmt.run(relation.id);
       }
 
@@ -394,7 +402,9 @@ function importRelations_(
   for (const relation of crossLayerRelations) {
     try {
       // Check for existing relation
-      const existingStmt = db.prepare("SELECT id FROM cross_layer_relations WHERE id = ?");
+      const existingStmt = db.prepare(
+        "SELECT id FROM cross_layer_relations WHERE id = ?",
+      );
       const existing = existingStmt.get(relation.id);
 
       if (existing) {
@@ -402,11 +412,15 @@ function importRelations_(
           result.skipped++;
           continue;
         } else if (conflictStrategy === "error") {
-          result.errors.push(`Cross-layer relation ${relation.id} already exists`);
+          result.errors.push(
+            `Cross-layer relation ${relation.id} already exists`,
+          );
           continue;
         }
         // overwrite: delete existing first
-        const deleteStmt = db.prepare("DELETE FROM cross_layer_relations WHERE id = ?");
+        const deleteStmt = db.prepare(
+          "DELETE FROM cross_layer_relations WHERE id = ?",
+        );
         deleteStmt.run(relation.id);
       }
 

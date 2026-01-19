@@ -197,7 +197,7 @@ describe("edge cases", () => {
 
     test("handles very long author names", () => {
       const name = "Alexander Bartholomew Christopher Davidson Edward Franklin";
-      const email = "alex@example.com";
+      const _email = "alex@example.com";
 
       expect(name.length).toBeGreaterThan(50);
     });

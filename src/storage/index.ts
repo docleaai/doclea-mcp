@@ -5,35 +5,32 @@
  * with configurable storage modes (automatic/suggested/manual).
  */
 
+// Factory
+export { createStorageBackend, DEFAULT_STORAGE_CONFIG } from "./factory";
 // Interface
 export type { IStorageBackend } from "./interface";
-
-// Types
-export type {
-  StorageBackendType,
-  StorageMode,
-  ExtendedStorageConfig,
-  DeleteResult,
-  PendingMemory,
-  CreatePendingMemoryInput,
-  PendingMemoryResult,
-  MemoryRelation,
-  CrossLayerRelation,
-  StorageExport,
-  ImportConflictStrategy,
-  ImportResult,
-  ListMemoriesOptions,
-} from "./types";
-
-export {
-  StorageBackendTypeSchema,
-  StorageModeSchema,
-  ExtendedStorageConfigSchema,
-} from "./types";
+export { MemoryStorageBackend } from "./memory-backend";
 
 // Implementations
 export { SqliteStorageBackend } from "./sqlite-backend";
-export { MemoryStorageBackend } from "./memory-backend";
-
-// Factory
-export { createStorageBackend, DEFAULT_STORAGE_CONFIG } from "./factory";
+// Types
+export type {
+  CreatePendingMemoryInput,
+  CrossLayerRelation,
+  DeleteResult,
+  ExtendedStorageConfig,
+  ImportConflictStrategy,
+  ImportResult,
+  ListMemoriesOptions,
+  MemoryRelation,
+  PendingMemory,
+  PendingMemoryResult,
+  StorageBackendType,
+  StorageExport,
+  StorageMode,
+} from "./types";
+export {
+  ExtendedStorageConfigSchema,
+  StorageBackendTypeSchema,
+  StorageModeSchema,
+} from "./types";

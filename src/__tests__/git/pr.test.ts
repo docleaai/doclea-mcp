@@ -136,7 +136,7 @@ describe("PR description generation", () => {
         return `This PR includes ${commits.length} commit(s) affecting ${filesChanged.length} file(s).`;
       }
 
-      return parts.join(". ") + ".";
+      return `${parts.join(". ")}.`;
     }
 
     test("summarizes single feature", () => {
@@ -382,8 +382,8 @@ describe("PR description generation", () => {
     test("groups files by directory", () => {
       const files = ["src/index.ts", "src/utils.ts"];
       const grouped = groupFilesByDirectory(files);
-      expect(grouped["src"]).toContain("index.ts");
-      expect(grouped["src"]).toContain("utils.ts");
+      expect(grouped.src).toContain("index.ts");
+      expect(grouped.src).toContain("utils.ts");
     });
 
     test("handles nested directories", () => {
@@ -403,8 +403,8 @@ describe("PR description generation", () => {
     test("handles mixed directories", () => {
       const files = ["src/index.ts", "test/test.ts", "index.ts"];
       const grouped = groupFilesByDirectory(files);
-      expect(grouped["src"]).toContain("index.ts");
-      expect(grouped["test"]).toContain("test.ts");
+      expect(grouped.src).toContain("index.ts");
+      expect(grouped.test).toContain("test.ts");
       expect(grouped[""]).toContain("index.ts");
     });
 

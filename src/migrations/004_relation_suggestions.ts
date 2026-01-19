@@ -9,13 +9,13 @@
 import type { Migration, MigrationDatabase } from "./types";
 
 export const migration004RelationSuggestions: Migration = {
-	version: "004",
-	name: "relation_suggestions",
-	destructive: false,
+  version: "004",
+  name: "relation_suggestions",
+  destructive: false,
 
-	up(db: MigrationDatabase): void {
-		// Create relation_suggestions table
-		db.exec(`
+  up(db: MigrationDatabase): void {
+    // Create relation_suggestions table
+    db.exec(`
 			CREATE TABLE IF NOT EXISTS relation_suggestions (
 				id TEXT PRIMARY KEY,
 				source_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
@@ -31,30 +31,30 @@ export const migration004RelationSuggestions: Migration = {
 			)
 		`);
 
-		// Create indexes for efficient queries
-		db.exec(`
+    // Create indexes for efficient queries
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_suggestions_status
 			ON relation_suggestions(status)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_suggestions_source
 			ON relation_suggestions(source_id)
 		`);
 
-		db.exec(`
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_suggestions_created
 			ON relation_suggestions(created_at)
 		`);
 
-		// Composite index for filtering by source and status
-		db.exec(`
+    // Composite index for filtering by source and status
+    db.exec(`
 			CREATE INDEX IF NOT EXISTS idx_suggestions_source_status
 			ON relation_suggestions(source_id, status)
 		`);
-	},
+  },
 
-	down(db: MigrationDatabase): void {
-		db.exec("DROP TABLE IF EXISTS relation_suggestions");
-	},
+  down(db: MigrationDatabase): void {
+    db.exec("DROP TABLE IF EXISTS relation_suggestions");
+  },
 };

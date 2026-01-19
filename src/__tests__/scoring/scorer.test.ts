@@ -22,6 +22,7 @@ function createTestMemory(overrides: Partial<Memory> = {}): Memory {
     createdAt: now - 7 * SECONDS_PER_DAY,
     accessedAt: now - 1 * SECONDS_PER_DAY,
     accessCount: 10,
+    needsReview: false,
     ...overrides,
   };
 }
@@ -90,10 +91,10 @@ describe("RelevanceScorer", () => {
       const memory = createTestMemory();
       const result = scorer.score(memory, 0.9, now);
 
-      expect(result.breakdown!.semantic).toBeCloseTo(0.9, 5);
-      expect(result.breakdown!.recency).toBeGreaterThan(0);
-      expect(result.breakdown!.confidence).toBe(0.5);
-      expect(result.breakdown!.frequency).toBeGreaterThan(0);
+      expect(result.breakdown?.semantic).toBeCloseTo(0.9, 5);
+      expect(result.breakdown?.recency).toBeGreaterThan(0);
+      expect(result.breakdown?.confidence).toBe(0.5);
+      expect(result.breakdown?.frequency).toBeGreaterThan(0);
     });
 
     it("should apply boost rules", () => {
@@ -113,9 +114,9 @@ describe("RelevanceScorer", () => {
       });
       const result = scorer.score(memory, 0.9, now);
 
-      expect(result.breakdown!.boosts.length).toBe(1);
-      expect(result.breakdown!.finalScore).toBeGreaterThan(
-        result.breakdown!.rawScore,
+      expect(result.breakdown?.boosts.length).toBe(1);
+      expect(result.breakdown?.finalScore).toBeGreaterThan(
+        result.breakdown?.rawScore ?? 0,
       );
     });
   });
@@ -150,7 +151,7 @@ describe("RelevanceScorer", () => {
       const memory = createTestMemory({ accessCount: 0 });
       const result = scorer.score(memory, 0.9, now);
 
-      expect(result.breakdown!.frequency).toBe(0.5);
+      expect(result.breakdown?.frequency).toBe(0.5);
     });
   });
 });

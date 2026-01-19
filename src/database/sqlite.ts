@@ -419,6 +419,9 @@ export class SQLiteDatabase {
       accessedAt: row.accessed_at,
       accessCount:
         (row as MemoryRow & { access_count?: number }).access_count ?? 0,
+      needsReview:
+        ((row as MemoryRow & { needs_review?: number }).needs_review ?? 0) ===
+        1,
     };
   }
 

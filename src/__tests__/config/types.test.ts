@@ -160,7 +160,7 @@ describe("types", () => {
   });
 
   describe("CreateMemory schema", () => {
-    interface CreateMemory {
+    interface _CreateMemory {
       type: string;
       title: string;
       content: string;
@@ -372,7 +372,7 @@ describe("types", () => {
   });
 
   describe("LocalEmbeddingConfig", () => {
-    interface LocalConfig {
+    interface _LocalConfig {
       provider: "local";
       endpoint: string;
     }
@@ -408,7 +408,7 @@ describe("types", () => {
   });
 
   describe("OpenAIEmbeddingConfig", () => {
-    interface OpenAIConfig {
+    interface _OpenAIConfig {
       provider: "openai";
       apiKey: string;
       model: string;
@@ -446,7 +446,7 @@ describe("types", () => {
   });
 
   describe("SearchFilters schema", () => {
-    interface SearchFilters {
+    interface _SearchFilters {
       type?: string;
       tags?: string[];
       minImportance?: number;
@@ -501,7 +501,7 @@ describe("types", () => {
   });
 
   describe("SearchResult schema", () => {
-    interface SearchResult {
+    interface _SearchResult {
       memory: { id: string };
       score: number;
     }
@@ -536,7 +536,7 @@ describe("types", () => {
   });
 
   describe("Expert schema", () => {
-    interface Expert {
+    interface _Expert {
       name: string;
       email: string;
       commits: number;
@@ -596,7 +596,7 @@ describe("types", () => {
   });
 
   describe("ExpertiseEntry schema", () => {
-    interface ExpertiseEntry {
+    interface _ExpertiseEntry {
       path: string;
       busFactor: number;
       busFactorRisk: boolean;
@@ -713,7 +713,7 @@ describe("types", () => {
   });
 
   describe("ReviewerSuggestion schema", () => {
-    interface ReviewerSuggestion {
+    interface _ReviewerSuggestion {
       name: string;
       email: string;
       reason: string;
@@ -782,14 +782,14 @@ describe("types", () => {
   });
 
   describe("SuggestReviewersResult structure", () => {
-    interface ReviewerSuggestion {
+    interface _ReviewerSuggestion2 {
       name: string;
       category: string;
     }
 
-    interface SuggestReviewersResult {
-      required: ReviewerSuggestion[];
-      optional: ReviewerSuggestion[];
+    interface _SuggestReviewersResult {
+      required: _ReviewerSuggestion2[];
+      optional: _ReviewerSuggestion2[];
       noOwner: string[];
       summary: string;
     }

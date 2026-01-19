@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Config, ConfigSchema, DEFAULT_CONFIG, type StorageConfig } from "./types";
+import {
+  type Config,
+  ConfigSchema,
+  DEFAULT_CONFIG,
+  type StorageConfig,
+} from "./types";
 
 const CONFIG_FILE = ".doclea/config.json";
 
@@ -45,7 +50,7 @@ export async function detectConfig(): Promise<Config> {
 
   const config: Config = { ...DEFAULT_CONFIG };
 
-  // Use Qdrant if running, otherwise sqlite-vec
+  // Use Qdrant if running, otherwise libSQL (embedded)
   if (qdrantRunning) {
     config.vector = {
       provider: "qdrant",
@@ -71,7 +76,9 @@ export async function detectConfig(): Promise<Config> {
  * Old format: { storage: { dbPath: "..." } }
  * New format: { storage: { backend: "sqlite", dbPath: "...", mode: "automatic" } }
  */
-function migrateConfig(rawConfig: Record<string, unknown>): Record<string, unknown> {
+function migrateConfig(
+  rawConfig: Record<string, unknown>,
+): Record<string, unknown> {
   // If storage is missing or not an object, use defaults
   if (!rawConfig.storage || typeof rawConfig.storage !== "object") {
     return {
@@ -84,7 +91,10 @@ function migrateConfig(rawConfig: Record<string, unknown>): Record<string, unkno
 
   // If storage only has dbPath (old format), add backend and mode
   if (!("backend" in storage) && !("mode" in storage)) {
-    const dbPath = typeof storage.dbPath === "string" ? storage.dbPath : DEFAULT_CONFIG.storage.dbPath;
+    const dbPath =
+      typeof storage.dbPath === "string"
+        ? storage.dbPath
+        : DEFAULT_CONFIG.storage.dbPath;
     return {
       ...rawConfig,
       storage: {
@@ -96,9 +106,17 @@ function migrateConfig(rawConfig: Record<string, unknown>): Record<string, unkno
   }
 
   // Already new format, just ensure defaults
-  const dbPath = typeof storage.dbPath === "string" ? storage.dbPath : DEFAULT_CONFIG.storage.dbPath;
+  const dbPath =
+    typeof storage.dbPath === "string"
+      ? storage.dbPath
+      : DEFAULT_CONFIG.storage.dbPath;
   const backend = storage.backend === "memory" ? "memory" : "sqlite";
-  const mode = storage.mode === "manual" ? "manual" : storage.mode === "suggested" ? "suggested" : "automatic";
+  const mode =
+    storage.mode === "manual"
+      ? "manual"
+      : storage.mode === "suggested"
+        ? "suggested"
+        : "automatic";
 
   return {
     ...rawConfig,

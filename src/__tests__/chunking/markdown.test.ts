@@ -58,9 +58,9 @@ Content 2.`;
         c.metadata.headers.includes("Sub Sub"),
       );
       expect(nestedChunk).toBeDefined();
-      expect(nestedChunk!.metadata.headers).toContain("Main");
-      expect(nestedChunk!.metadata.headers).toContain("Sub 1");
-      expect(nestedChunk!.metadata.headers).toContain("Sub Sub");
+      expect(nestedChunk?.metadata.headers).toContain("Main");
+      expect(nestedChunk?.metadata.headers).toContain("Sub 1");
+      expect(nestedChunk?.metadata.headers).toContain("Sub Sub");
     });
 
     test("should track line numbers correctly", async () => {
@@ -81,7 +81,7 @@ Line 6`;
         c.content.includes("# Header on line 4"),
       );
       expect(headerChunk).toBeDefined();
-      expect(headerChunk!.metadata.startLine).toBe(4);
+      expect(headerChunk?.metadata.startLine).toBe(4);
     });
 
     test("should preserve frontmatter in first chunk", async () => {
@@ -122,12 +122,12 @@ More text after code.`;
       expect(codeChunk).toBeDefined();
 
       // Code block should not be split
-      expect(codeChunk!.content).toContain('console.log("Hello, World!")');
-      expect(codeChunk!.content).toContain("return 42");
+      expect(codeChunk?.content).toContain('console.log("Hello, World!")');
+      expect(codeChunk?.content).toContain("return 42");
     });
 
     test("should not split code blocks even if over token limit", async () => {
-      const longCode = "const x = " + '"a".repeat(100);\n'.repeat(20);
+      const longCode = `const x = ${'"a".repeat(100);\n'.repeat(20)}`;
       const markdown = `# Code
 
 \`\`\`javascript
@@ -139,8 +139,8 @@ ${longCode}
       // Code block gets its own chunk even if large
       const codeChunk = chunks.find((c) => c.metadata.hasCodeBlock);
       expect(codeChunk).toBeDefined();
-      expect(codeChunk!.content).toContain("```javascript");
-      expect(codeChunk!.content).toContain("```");
+      expect(codeChunk?.content).toContain("```javascript");
+      expect(codeChunk?.content).toContain("```");
     });
 
     test("should split large sections while respecting token limits", async () => {
@@ -222,13 +222,13 @@ Content.`;
       // H3 should have H1 and H2a in its headers
       const h3Chunk = chunks.find((c) => c.metadata.headers.includes("H3"));
       expect(h3Chunk).toBeDefined();
-      expect(h3Chunk!.metadata.headers).toContain("H1");
-      expect(h3Chunk!.metadata.headers).toContain("H2a");
+      expect(h3Chunk?.metadata.headers).toContain("H1");
+      expect(h3Chunk?.metadata.headers).toContain("H2a");
 
       // H2b should NOT have H2a in its headers (sibling, not parent)
       const h2bChunk = chunks.find((c) => c.metadata.headers.includes("H2b"));
       expect(h2bChunk).toBeDefined();
-      expect(h2bChunk!.metadata.headers).not.toContain("H2a");
+      expect(h2bChunk?.metadata.headers).not.toContain("H2a");
     });
 
     test("should include token count in each chunk", async () => {
