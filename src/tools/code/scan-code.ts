@@ -77,35 +77,79 @@ export async function scanCode(
   // Discover files
   const patterns = input.patterns || ["**/*.{ts,tsx,js,jsx,py,go,rs}"];
   const exclude = input.exclude || [
+    // Package managers & version control
     "**/node_modules/**",
     "**/.git/**",
+    "**/vendor/**",
+
+    // Build output directories
     "**/dist/**",
     "**/build/**",
+    "**/out/**",
+    "**/output/**",
+    "**/lib/**",
+    "**/esm/**",
+    "**/cjs/**",
+    "**/umd/**",
+    "**/compiled/**",
+    "**/_build/**",
+    "**/.build/**",
+
+    // Framework-specific output
     "**/.next/**",
-    "**/coverage/**",
-    "**/.turbo/**",
-    "**/.cache/**",
-    "**/.output/**",
     "**/.nuxt/**",
     "**/.svelte-kit/**",
     "**/.vercel/**",
     "**/.netlify/**",
-    "**/out/**",
+    "**/.output/**",
+    "**/.turbo/**",
+    "**/.cache/**",
+    "**/.parcel-cache/**",
+    "**/.vite/**",
+    "**/.rollup.cache/**",
+    "**/.webpack/**",
+
+    // Test/coverage output
+    "**/coverage/**",
+    "**/.nyc_output/**",
     "**/__pycache__/**",
     "**/.pytest_cache/**",
-    "**/target/**",
-    "**/vendor/**",
+    "**/htmlcov/**",
+    "**/.tox/**",
+
+    // Language-specific build output
+    "**/target/**", // Rust/Cargo
+    "**/bin/**",
+    "**/obj/**", // .NET
+
+    // Generated/compiled files
     "**/*.min.js",
     "**/*.min.css",
     "**/*.d.ts",
-    "**/*.map",
+    "**/*.js.map",
+    "**/*.d.ts.map",
+    "**/*.css.map",
+    "**/*.bundle.js",
+    "**/*.chunk.js",
+
+    // Lock files (not code)
     "**/*.lock",
     "**/package-lock.json",
     "**/pnpm-lock.yaml",
     "**/yarn.lock",
     "**/bun.lock",
+    "**/bun.lockb",
+    "**/Cargo.lock",
+    "**/poetry.lock",
+    "**/Gemfile.lock",
+    "**/composer.lock",
+
+    // Tool directories
     "**/.doclea/**",
     "**/.beads/**",
+    "**/.idea/**",
+    "**/.vscode/**",
+    "**/.vs/**",
   ];
 
   const rootDir = input.projectPath || process.cwd();
