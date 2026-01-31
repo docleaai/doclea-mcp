@@ -1,12 +1,18 @@
 import type { Database } from "bun:sqlite";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { CodeGraphStorage } from "../../database/code-graph";
-import type { EmbeddingClient } from "../../embeddings/provider";
-import type { VectorStore } from "../../vectors/interface";
+import { CodeGraphStorage } from "@/database/code-graph";
+import type { EmbeddingClient } from "@/embeddings/provider";
+import {
+  DEFAULT_EXCLUDE_PATTERNS,
+  DEFAULT_INCLUDE_PATTERNS,
+  discoverFiles,
+} from "@/utils";
+import type { VectorStore } from "@/vectors";
 import { ChangeDetector } from "./change-detector";
 import { IncrementalScanner } from "./incremental-scanner";
+import { runScipScan } from "./scip-scanner";
 import { CodeSummarizer } from "./summarizer";
 import type { IncrementalScanResult } from "./types";
 import { CodeWatcher } from "./watcher";
@@ -44,6 +50,12 @@ export const ScanCodeInputSchema = z.object({
     .string()
     .optional()
     .describe("Project root path to scan (default: current working directory)"),
+  useScip: z
+    .boolean()
+    .default(true)
+    .describe(
+      "Use SCIP indexer for compiler-accurate analysis (default: true for TS/JS projects)",
+    ),
 });
 
 export type ScanCodeInput = z.infer<typeof ScanCodeInputSchema>;
@@ -62,6 +74,52 @@ export async function scanCode(
   message: string;
 }> {
   const codeGraph = new CodeGraphStorage(db);
+  const rootDir = input.projectPath || process.cwd();
+
+  console.log(`[scan] Scanning project at: ${rootDir}`);
+
+  // Check if SCIP should be used (TypeScript/JavaScript project with tsconfig or package.json)
+  const useScip =
+    input.useScip !== false &&
+    (existsSync(join(rootDir, "tsconfig.json")) ||
+      existsSync(join(rootDir, "package.json")));
+
+  if (useScip) {
+    console.log("[scan] Using SCIP for compiler-accurate analysis");
+    const result = await runScipScan(
+      rootDir,
+      codeGraph,
+      vectorStore,
+      embeddings,
+    );
+
+    // Start watcher if requested (legacy watcher for now)
+    let watcherStarted = false;
+    if (input.watch && !globalWatcher) {
+      const changeDetector = new ChangeDetector(db);
+      const summarizer = input.extractSummaries
+        ? new CodeSummarizer({ enabled: true })
+        : undefined;
+      const scanner = new IncrementalScanner(
+        changeDetector,
+        codeGraph,
+        summarizer,
+        vectorStore,
+        embeddings,
+      );
+      const patterns = input.patterns || [...DEFAULT_INCLUDE_PATTERNS];
+      const exclude = input.exclude || [...DEFAULT_EXCLUDE_PATTERNS];
+      globalWatcher = new CodeWatcher(scanner);
+      await globalWatcher.start({ patterns, exclude });
+      watcherStarted = true;
+    }
+
+    const message = `SCIP scan complete. Nodes: +${result.stats.nodesAdded}. Edges: +${result.stats.edgesAdded}. Files: ${result.stats.filesScanned}.${watcherStarted ? " File watcher started." : ""}`;
+    return { result, watcherStarted, message };
+  }
+
+  // Legacy file-by-file scanning (for non-TS projects or when SCIP is disabled)
+  console.log("[scan] Using legacy file-by-file scanner");
   const changeDetector = new ChangeDetector(db);
   const summarizer = input.extractSummaries
     ? new CodeSummarizer({ enabled: true })
@@ -74,87 +132,16 @@ export async function scanCode(
     embeddings,
   );
 
-  // Discover files
-  const patterns = input.patterns || ["**/*.{ts,tsx,js,jsx,py,go,rs}"];
-  const exclude = input.exclude || [
-    // Package managers & version control
-    "**/node_modules/**",
-    "**/.git/**",
-    "**/vendor/**",
+  // Discover files using native glob
+  const patterns = input.patterns || [...DEFAULT_INCLUDE_PATTERNS];
+  const exclude = input.exclude || [...DEFAULT_EXCLUDE_PATTERNS];
 
-    // Build output directories
-    "**/dist/**",
-    "**/build/**",
-    "**/out/**",
-    "**/output/**",
-    "**/lib/**",
-    "**/esm/**",
-    "**/cjs/**",
-    "**/umd/**",
-    "**/compiled/**",
-    "**/_build/**",
-    "**/.build/**",
-
-    // Framework-specific output
-    "**/.next/**",
-    "**/.nuxt/**",
-    "**/.svelte-kit/**",
-    "**/.vercel/**",
-    "**/.netlify/**",
-    "**/.output/**",
-    "**/.turbo/**",
-    "**/.cache/**",
-    "**/.parcel-cache/**",
-    "**/.vite/**",
-    "**/.rollup.cache/**",
-    "**/.webpack/**",
-
-    // Test/coverage output
-    "**/coverage/**",
-    "**/.nyc_output/**",
-    "**/__pycache__/**",
-    "**/.pytest_cache/**",
-    "**/htmlcov/**",
-    "**/.tox/**",
-
-    // Language-specific build output
-    "**/target/**", // Rust/Cargo
-    "**/bin/**",
-    "**/obj/**", // .NET
-
-    // Generated/compiled files
-    "**/*.min.js",
-    "**/*.min.css",
-    "**/*.d.ts",
-    "**/*.js.map",
-    "**/*.d.ts.map",
-    "**/*.css.map",
-    "**/*.bundle.js",
-    "**/*.chunk.js",
-
-    // Lock files (not code)
-    "**/*.lock",
-    "**/package-lock.json",
-    "**/pnpm-lock.yaml",
-    "**/yarn.lock",
-    "**/bun.lock",
-    "**/bun.lockb",
-    "**/Cargo.lock",
-    "**/poetry.lock",
-    "**/Gemfile.lock",
-    "**/composer.lock",
-
-    // Tool directories
-    "**/.doclea/**",
-    "**/.beads/**",
-    "**/.idea/**",
-    "**/.vscode/**",
-    "**/.vs/**",
-  ];
-
-  const rootDir = input.projectPath || process.cwd();
-  console.log(`[scan] Scanning project at: ${rootDir}`);
-  let files = discoverFiles(rootDir, patterns, exclude);
+  let files = await discoverFiles({
+    include: patterns,
+    exclude,
+    cwd: rootDir,
+    debug: process.env.DOCLEA_DEBUG === "true",
+  });
 
   // Apply maxFiles limit if specified
   if (input.maxFiles && files.length > input.maxFiles) {
@@ -269,74 +256,4 @@ async function fullScan(
 ): Promise<IncrementalScanResult> {
   // For full scan, treat all files as "added"
   return scanner.scanIncremental(files);
-}
-
-function discoverFiles(
-  rootDir: string,
-  patterns: string[],
-  exclude: string[],
-): string[] {
-  const files: string[] = [];
-
-  function walk(dir: string, depth: number = 0): void {
-    if (depth > 10) return; // Prevent infinite recursion
-
-    try {
-      const entries = readdirSync(dir);
-
-      for (const entry of entries) {
-        const fullPath = join(dir, entry);
-        const relativePath = fullPath.substring(rootDir.length + 1);
-
-        // Check exclusions
-        if (shouldExclude(relativePath, exclude)) continue;
-
-        try {
-          const stat = statSync(fullPath);
-
-          if (stat.isDirectory()) {
-            walk(fullPath, depth + 1);
-          } else if (stat.isFile()) {
-            if (matchesPattern(relativePath, patterns)) {
-              files.push(fullPath);
-            }
-          }
-        } catch {}
-      }
-    } catch {
-      // Skip directories we can't read
-    }
-  }
-
-  walk(rootDir);
-  return files;
-}
-
-function shouldExclude(path: string, exclude: string[]): boolean {
-  for (const pattern of exclude) {
-    const regex = patternToRegex(pattern);
-    if (regex.test(path)) return true;
-  }
-  return false;
-}
-
-function matchesPattern(path: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    const regex = patternToRegex(pattern);
-    if (regex.test(path)) return true;
-  }
-  return false;
-}
-
-function patternToRegex(pattern: string): RegExp {
-  // Simple glob to regex conversion
-  // Use placeholder for ** to avoid interference with single * replacement
-  const escaped = pattern
-    .replace(/\./g, "\\.")
-    .replace(/\*\*/g, "\0GLOBSTAR\0")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\0GLOBSTAR\0/g, ".*")
-    .replace(/\{([^}]+)\}/g, "($1)")
-    .replace(/,/g, "|");
-  return new RegExp(`^${escaped}$`);
 }

@@ -43,7 +43,7 @@ export class GraphExtractor {
 
       const node: CodeNode = {
         id: nodeId,
-        type: chunk.metadata.isClass ? "class" : "function",
+        type: this.mapNodeType(chunk.metadata.nodeType, chunk.metadata.isClass),
         name: chunk.metadata.name || "anonymous",
         filePath,
         startLine: chunk.metadata.startLine,
@@ -69,6 +69,46 @@ export class GraphExtractor {
     }
 
     return { nodes, edges };
+  }
+
+  /**
+   * Map AST node type to our CodeNode type
+   */
+  private mapNodeType(
+    nodeType: string,
+    isClass: boolean,
+  ): "function" | "class" | "interface" | "type" | "module" {
+    // Interface types
+    if (
+      nodeType === "interface_declaration" ||
+      nodeType === "trait_item" // Rust trait
+    ) {
+      return "interface";
+    }
+
+    // Type alias types
+    if (
+      nodeType === "type_alias_declaration" ||
+      nodeType === "type_item" // Rust type alias
+    ) {
+      return "type";
+    }
+
+    // Class types (including enums, structs)
+    if (
+      nodeType === "class_declaration" ||
+      nodeType === "class_definition" || // Python
+      nodeType === "struct_item" || // Rust
+      nodeType === "enum_declaration" ||
+      nodeType === "enum_item" || // Rust
+      nodeType === "impl_item" || // Rust impl block
+      nodeType === "type_declaration" // Go
+    ) {
+      return "class";
+    }
+
+    // Default based on isClass flag
+    return isClass ? "class" : "function";
   }
 
   /**

@@ -1,8 +1,11 @@
 import type { Database } from "bun:sqlite";
-import { readdirSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
+import {
+  DEFAULT_EXCLUDE_PATTERNS,
+  DEFAULT_INCLUDE_PATTERNS,
+  discoverFiles,
+} from "@/utils";
 import { chunkCodeFile } from "../../chunking/code";
 import { CodeSummarizer } from "./summarizer";
 import type { SummaryStats, SummaryStrategy } from "./types";
@@ -79,18 +82,15 @@ export async function summarizeCode(
     files = [input.filePath];
   } else if (input.directory || input.patterns) {
     const baseDir = input.directory || process.cwd();
-    const patterns = input.patterns || [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.js",
-      "**/*.jsx",
-      "**/*.py",
-      "**/*.go",
-      "**/*.rs",
-    ];
-    const exclude = ["**/node_modules/**", "**/dist/**", "**/.git/**"];
+    const patterns = input.patterns || [...DEFAULT_INCLUDE_PATTERNS];
+    const exclude = [...DEFAULT_EXCLUDE_PATTERNS];
 
-    files = discoverFiles(baseDir, patterns, exclude);
+    files = await discoverFiles({
+      include: patterns,
+      exclude,
+      cwd: baseDir,
+      debug: process.env.DOCLEA_DEBUG === "true",
+    });
   } else {
     return {
       stats,
@@ -201,72 +201,4 @@ export async function summarizeCode(
   }
 
   return { stats, needsAiSummary, message };
-}
-
-function discoverFiles(
-  rootDir: string,
-  patterns: string[],
-  exclude: string[],
-): string[] {
-  const files: string[] = [];
-
-  function walk(dir: string, depth: number = 0): void {
-    if (depth > 10) return; // Prevent infinite recursion
-
-    try {
-      const entries = readdirSync(dir);
-
-      for (const entry of entries) {
-        const fullPath = join(dir, entry);
-        const relativePath = fullPath.substring(rootDir.length + 1);
-
-        // Check exclusions
-        if (shouldExclude(relativePath, exclude)) continue;
-
-        try {
-          const stat = statSync(fullPath);
-
-          if (stat.isDirectory()) {
-            walk(fullPath, depth + 1);
-          } else if (stat.isFile()) {
-            if (matchesPattern(relativePath, patterns)) {
-              files.push(fullPath);
-            }
-          }
-        } catch {}
-      }
-    } catch {
-      // Skip directories we can't read
-    }
-  }
-
-  walk(rootDir);
-  return files;
-}
-
-function shouldExclude(path: string, exclude: string[]): boolean {
-  for (const pattern of exclude) {
-    const regex = patternToRegex(pattern);
-    if (regex.test(path)) return true;
-  }
-  return false;
-}
-
-function matchesPattern(path: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    const regex = patternToRegex(pattern);
-    if (regex.test(path)) return true;
-  }
-  return false;
-}
-
-function patternToRegex(pattern: string): RegExp {
-  // Simple glob to regex conversion
-  const escaped = pattern
-    .replace(/\./g, "\\.")
-    .replace(/\*\*/g, ".*")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\{([^}]+)\}/g, "($1)")
-    .replace(/,/g, "|");
-  return new RegExp(`^${escaped}$`);
 }

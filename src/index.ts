@@ -688,6 +688,7 @@ server.registerTool(
           batchSize: args.batchSize ?? 50,
           maxFiles: args.maxFiles ?? 500, // Default limit to prevent timeouts
           projectPath: scanPath,
+          useScip: true,
         },
         storage.getDatabase(),
         vectors,

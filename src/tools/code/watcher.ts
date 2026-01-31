@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import chokidar, { type FSWatcher } from "chokidar";
+import { DEFAULT_EXCLUDE_PATTERNS, DEFAULT_INCLUDE_PATTERNS } from "@/utils";
 import type { IncrementalScanner } from "./incremental-scanner";
 import type { ScanOptions } from "./types";
 
@@ -22,20 +23,14 @@ export class CodeWatcher {
       return;
     }
 
-    const patterns = options.patterns || ["**/*.{ts,tsx,js,jsx,py,go,rs}"];
-    const ignored = options.exclude || [
-      "**/node_modules/**",
-      "**/.git/**",
-      "**/dist/**",
-      "**/build/**",
-      "**/.next/**",
-      "**/coverage/**",
-    ];
+    const patterns = options.patterns || [...DEFAULT_INCLUDE_PATTERNS];
+    const ignored = options.exclude || [...DEFAULT_EXCLUDE_PATTERNS];
 
     this.watcher = chokidar.watch(patterns, {
       ignored,
       persistent: true,
       ignoreInitial: true, // Don't trigger on startup
+      followSymlinks: false, // MUST: Match discoverFiles behavior, prevent infinite loops
       awaitWriteFinish: {
         stabilityThreshold: 100,
         pollInterval: 100,

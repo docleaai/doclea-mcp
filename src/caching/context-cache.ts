@@ -1,21 +1,22 @@
 /**
- * LRU Context Cache implementation
- *
- * Provides caching for buildContext() results with:
- * - LRU eviction based on entry count
- * - TTL-based expiration
- * - Targeted invalidation by memory ID
+ * Context Cache using lru-cache library
+ * Adds memory ID tracking for targeted invalidation on top of LRU
  */
 
-import type { CacheEntry, CacheStats, ContextCacheConfig } from "./types";
+import { LRUCache } from "lru-cache";
+import type { CacheStats, ContextCacheConfig } from "./types";
 import { DEFAULT_CACHE_CONFIG } from "./types";
 
+interface CacheValue<T> {
+  value: T;
+  memoryIds: string[];
+}
+
 /**
- * LRU Cache with TTL support and targeted invalidation.
- * Uses a Map for O(1) lookups and maintains insertion order for LRU.
+ * LRU Cache with TTL support and memory ID-based invalidation
  */
 export class ContextCache<T> {
-  private cache: Map<string, CacheEntry<T>>;
+  private cache: LRUCache<string, CacheValue<T>>;
   private config: ContextCacheConfig;
   private stats: {
     hits: number;
@@ -26,20 +27,18 @@ export class ContextCache<T> {
 
   constructor(config: Partial<ContextCacheConfig> = {}) {
     this.config = { ...DEFAULT_CACHE_CONFIG, ...config };
-    this.cache = new Map();
-    this.stats = {
-      hits: 0,
-      misses: 0,
-      evictions: 0,
-      invalidations: 0,
-    };
+    this.stats = { hits: 0, misses: 0, evictions: 0, invalidations: 0 };
+
+    this.cache = new LRUCache<string, CacheValue<T>>({
+      max: this.config.maxEntries,
+      ttl: this.config.ttlMs,
+      updateAgeOnGet: true,
+      dispose: () => {
+        this.stats.evictions++;
+      },
+    });
   }
 
-  /**
-   * Get an entry from the cache.
-   * Returns null if entry doesn't exist or has expired.
-   * Updates last accessed time on hit.
-   */
   get(key: string): T | null {
     if (!this.config.enabled) {
       this.stats.misses++;
@@ -47,85 +46,36 @@ export class ContextCache<T> {
     }
 
     const entry = this.cache.get(key);
-
     if (!entry) {
       this.stats.misses++;
       return null;
     }
 
-    // Check TTL expiration
-    const now = Date.now();
-    if (now - entry.createdAt > this.config.ttlMs) {
-      this.cache.delete(key);
-      this.stats.evictions++;
-      this.stats.misses++;
-      return null;
-    }
-
-    // Update last accessed time and move to end of Map (most recently used)
-    entry.lastAccessedAt = now;
-    this.cache.delete(key);
-    this.cache.set(key, entry);
-
     this.stats.hits++;
     return entry.value;
   }
 
-  /**
-   * Store an entry in the cache.
-   * Evicts LRU entries if cache is full.
-   */
   set(key: string, value: T, memoryIds: string[] = []): void {
-    if (!this.config.enabled) {
-      return;
-    }
-
-    const now = Date.now();
-
-    // If key already exists, delete it first (to update position)
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-
-    // Evict LRU entries if at capacity
-    while (this.cache.size >= this.config.maxEntries) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
-        this.stats.evictions++;
-      }
-    }
-
-    const entry: CacheEntry<T> = {
-      key,
-      value,
-      memoryIds,
-      createdAt: now,
-      lastAccessedAt: now,
-    };
-
-    this.cache.set(key, entry);
+    if (!this.config.enabled) return;
+    this.cache.set(key, { value, memoryIds });
   }
 
   /**
-   * Invalidate cache entries that contain a specific memory ID.
-   * Returns the number of entries invalidated.
+   * Invalidate cache entries containing a specific memory ID
    */
   invalidateByMemoryId(memoryId: string): number {
-    if (!this.config.enabled) {
-      return 0;
-    }
+    if (!this.config.enabled) return 0;
 
     let invalidated = 0;
     const keysToDelete: string[] = [];
 
-    for (const [key, entry] of this.cache) {
+    for (const [key, entry] of this.cache.entries()) {
       if (entry.memoryIds.includes(memoryId)) {
         keysToDelete.push(key);
       }
     }
 
-    // Check if more than 50% would be invalidated - if so, clear all
+    // If >50% would be invalidated, clear all
     if (keysToDelete.length > this.cache.size * 0.5) {
       invalidated = this.cache.size;
       this.cache.clear();
@@ -142,70 +92,24 @@ export class ContextCache<T> {
     return invalidated;
   }
 
-  /**
-   * Remove all expired entries from the cache.
-   * Returns the number of entries removed.
-   */
   invalidateExpired(): number {
-    if (!this.config.enabled) {
-      return 0;
-    }
-
-    const now = Date.now();
-    let expired = 0;
-    const keysToDelete: string[] = [];
-
-    for (const [key, entry] of this.cache) {
-      if (now - entry.createdAt > this.config.ttlMs) {
-        keysToDelete.push(key);
-      }
-    }
-
-    for (const key of keysToDelete) {
-      this.cache.delete(key);
-      expired++;
-    }
-
-    this.stats.evictions += expired;
-    return expired;
+    if (!this.config.enabled) return 0;
+    const sizeBefore = this.cache.size;
+    this.cache.purgeStale();
+    return sizeBefore - this.cache.size;
   }
 
-  /**
-   * Clear all entries from the cache.
-   */
   clear(): void {
     const count = this.cache.size;
     this.cache.clear();
     this.stats.evictions += count;
   }
 
-  /**
-   * Check if a key exists in the cache (without updating access time).
-   */
   has(key: string): boolean {
-    if (!this.config.enabled) {
-      return false;
-    }
-
-    const entry = this.cache.get(key);
-    if (!entry) {
-      return false;
-    }
-
-    // Check TTL
-    const now = Date.now();
-    if (now - entry.createdAt > this.config.ttlMs) {
-      this.cache.delete(key);
-      this.stats.evictions++;
-      return false;
-    }
-
-    return true;
+    if (!this.config.enabled) return false;
+    return this.cache.has(key);
   }
 
-  /**
-   * Get cache statistics.
-   */
   getStats(): CacheStats {
     const totalRequests = this.stats.hits + this.stats.misses;
     return {
@@ -215,46 +119,39 @@ export class ContextCache<T> {
     };
   }
 
-  /**
-   * Reset statistics counters.
-   */
   resetStats(): void {
-    this.stats = {
-      hits: 0,
-      misses: 0,
-      evictions: 0,
-      invalidations: 0,
-    };
+    this.stats = { hits: 0, misses: 0, evictions: 0, invalidations: 0 };
   }
 
-  /**
-   * Get the current configuration.
-   */
   getConfig(): ContextCacheConfig {
     return { ...this.config };
   }
 
-  /**
-   * Update the cache configuration.
-   * If maxEntries is reduced, excess entries will be evicted.
-   */
   updateConfig(config: Partial<ContextCacheConfig>): void {
+    const oldConfig = this.config;
     this.config = { ...this.config, ...config };
 
-    // Evict excess entries if maxEntries was reduced
-    while (this.cache.size > this.config.maxEntries) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) {
-        this.cache.delete(oldestKey);
-        this.stats.evictions++;
+    // If max or ttl changed, recreate cache (lru-cache doesn't allow resize)
+    if (
+      this.config.maxEntries !== oldConfig.maxEntries ||
+      this.config.ttlMs !== oldConfig.ttlMs
+    ) {
+      const oldEntries = [...this.cache.entries()];
+      this.cache = new LRUCache<string, CacheValue<T>>({
+        max: this.config.maxEntries,
+        ttl: this.config.ttlMs,
+        updateAgeOnGet: true,
+        dispose: () => {
+          this.stats.evictions++;
+        },
+      });
+      // Re-add entries (will auto-evict if over new max)
+      for (const [key, value] of oldEntries) {
+        this.cache.set(key, value);
       }
     }
   }
 
-  /**
-   * Get all memory IDs that are currently tracked in the cache.
-   * Useful for understanding cache coverage.
-   */
   getTrackedMemoryIds(): Set<string> {
     const memoryIds = new Set<string>();
     for (const entry of this.cache.values()) {
@@ -266,12 +163,9 @@ export class ContextCache<T> {
   }
 }
 
-// Singleton instance for the default context cache
+// Singleton
 let defaultContextCache: ContextCache<unknown> | null = null;
 
-/**
- * Get or create the default context cache instance.
- */
 export function getContextCache<T>(
   config?: Partial<ContextCacheConfig>,
 ): ContextCache<T> {
@@ -283,10 +177,6 @@ export function getContextCache<T>(
   return defaultContextCache as ContextCache<T>;
 }
 
-/**
- * Reset the default context cache instance.
- * Useful for testing.
- */
 export function resetContextCache(): void {
   defaultContextCache = null;
 }
