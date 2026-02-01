@@ -3,7 +3,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
+import { nanoid } from "nanoid";
 
 /**
  * Cross-layer relation types
@@ -83,7 +83,7 @@ export class CrossLayerRelationStorage {
   async createRelation(
     input: CreateCrossLayerRelationInput,
   ): Promise<CrossLayerRelation> {
-    const id = randomUUID();
+    const id = nanoid(21);
     const createdAt = Math.floor(Date.now() / 1000);
     const metadataJson = input.metadata ? JSON.stringify(input.metadata) : null;
 

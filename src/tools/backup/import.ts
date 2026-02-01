@@ -5,8 +5,8 @@
  * Supports conflict resolution strategies and optional re-embedding.
  */
 
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { EmbeddingClient } from "@/embeddings/provider";
 import type { IStorageBackend } from "@/storage/interface";
@@ -205,7 +205,7 @@ async function importMemories(
       // Generate new qdrantId if re-embedding
       let qdrantId = memory.qdrantId;
       if (reembed && vectors && embeddings) {
-        qdrantId = `vec_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+        qdrantId = `vec_${nanoid(16)}`;
 
         // Generate embedding and store in vector database
         const text = `${memory.title}\n\n${memory.content}`;

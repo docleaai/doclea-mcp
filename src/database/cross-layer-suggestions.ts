@@ -3,7 +3,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
+import { nanoid } from "nanoid";
 import type {
   CrossLayerDetectionMethod,
   CrossLayerDirection,
@@ -93,7 +93,7 @@ export class CrossLayerSuggestionStorage {
     reason: string,
     detectionMethod: CrossLayerDetectionMethod,
   ): Promise<CrossLayerSuggestion> {
-    const id = randomUUID();
+    const id = nanoid(21);
     const createdAt = Math.floor(Date.now() / 1000);
 
     const stmt = this.db.prepare(`

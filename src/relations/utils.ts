@@ -2,121 +2,7 @@
  * Utility functions for relation detection
  */
 
-/**
- * Common English stopwords to filter out
- */
-const STOPWORDS = new Set([
-  "the",
-  "a",
-  "an",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "being",
-  "have",
-  "has",
-  "had",
-  "do",
-  "does",
-  "did",
-  "will",
-  "would",
-  "could",
-  "should",
-  "may",
-  "might",
-  "must",
-  "shall",
-  "can",
-  "need",
-  "dare",
-  "ought",
-  "used",
-  "to",
-  "of",
-  "in",
-  "for",
-  "on",
-  "with",
-  "at",
-  "by",
-  "from",
-  "up",
-  "about",
-  "into",
-  "over",
-  "after",
-  "beneath",
-  "under",
-  "above",
-  "and",
-  "but",
-  "or",
-  "nor",
-  "so",
-  "yet",
-  "both",
-  "either",
-  "neither",
-  "not",
-  "only",
-  "own",
-  "same",
-  "than",
-  "too",
-  "very",
-  "just",
-  "also",
-  "now",
-  "here",
-  "there",
-  "when",
-  "where",
-  "why",
-  "how",
-  "all",
-  "each",
-  "every",
-  "both",
-  "few",
-  "more",
-  "most",
-  "other",
-  "some",
-  "such",
-  "no",
-  "any",
-  "this",
-  "that",
-  "these",
-  "those",
-  "what",
-  "which",
-  "who",
-  "whom",
-  "whose",
-  "it",
-  "its",
-  "they",
-  "them",
-  "their",
-  "we",
-  "us",
-  "our",
-  "you",
-  "your",
-  "he",
-  "him",
-  "his",
-  "she",
-  "her",
-  "i",
-  "me",
-  "my",
-]);
+import { eng, removeStopwords } from "stopword";
 
 /**
  * Technical terms that should be preserved as keywords
@@ -175,17 +61,17 @@ export function extractKeywords(text: string, maxKeywords = 20): string[] {
     .split(/\s+/)
     .filter((word) => word.length > 0);
 
+  // Remove stopwords using the stopword package
+  const withoutStopwords = removeStopwords(words, eng);
+
   // Deduplicate and filter
   const seen = new Set<string>();
   const keywords: string[] = [];
 
-  for (const word of words) {
+  for (const word of withoutStopwords) {
     // Skip if already seen
     if (seen.has(word)) continue;
     seen.add(word);
-
-    // Skip stopwords
-    if (STOPWORDS.has(word)) continue;
 
     // Skip very short words (unless they're technical prefixes)
     const isTechnical = TECHNICAL_PREFIXES.some(

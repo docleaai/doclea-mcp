@@ -25,6 +25,7 @@ import { migration008TagTaxonomy } from "./008_tag_taxonomy";
 import { migration009BackfillTags } from "./009_backfill_tags";
 import { migration010ReviewStatus } from "./010_review_status";
 import { migration011ConfidenceDecay } from "./011_confidence_decay";
+import { migration012GraphRAG } from "./012_graphrag";
 
 /**
  * All migrations in version order
@@ -42,6 +43,7 @@ export const migrations = [
   migration009BackfillTags,
   migration010ReviewStatus,
   migration011ConfidenceDecay,
+  migration012GraphRAG,
 ];
 
 /**

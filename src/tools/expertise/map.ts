@@ -1,3 +1,4 @@
+import { format, subMonths } from "date-fns";
 import simpleGit from "simple-git";
 import { z } from "zod";
 import type { Expert, ExpertiseEntry, ExpertiseRecommendation } from "@/types";
@@ -47,10 +48,10 @@ export interface ExpertiseResult {
   };
 }
 
-// Constants for analysis
-const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-const THREE_MONTHS_MS = 3 * 30 * 24 * 60 * 60 * 1000;
-const _ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+// Helper to get timestamp N months ago
+function getMonthsAgoTimestamp(months: number): number {
+  return subMonths(new Date(), months).getTime();
+}
 
 export async function mapExpertise(
   input: ExpertiseInput,
@@ -104,7 +105,7 @@ export async function mapExpertise(
     ? entries
     : entries.filter((e) => {
         const lastActivityTime = parseDate(e.lastActivity);
-        return lastActivityTime > now - SIX_MONTHS_MS;
+        return lastActivityTime > getMonthsAgoTimestamp(6);
       });
 
   // Sort by bus factor risk (highest risk first)
@@ -134,7 +135,7 @@ export async function mapExpertise(
   const stalePaths = filteredEntries
     .filter((e) => {
       const lastActivityTime = parseDate(e.lastActivity);
-      return lastActivityTime < now - SIX_MONTHS_MS;
+      return lastActivityTime < getMonthsAgoTimestamp(6);
     })
     .map((e) => e.path);
 
@@ -292,8 +293,8 @@ function generateRecommendations(
 
   for (const entry of entries) {
     const lastActivityTime = parseDate(entry.lastActivity);
-    const isStale = lastActivityTime < now - SIX_MONTHS_MS;
-    const isInactive = lastActivityTime < now - THREE_MONTHS_MS;
+    const isStale = lastActivityTime < getMonthsAgoTimestamp(6);
+    const isInactive = lastActivityTime < getMonthsAgoTimestamp(3);
 
     // High priority: Bus factor risk with active code
     if (entry.busFactorRisk && !isStale && entry.primaryExpert) {
@@ -441,7 +442,7 @@ function isIgnoredFile(file: string): boolean {
 function formatDate(timestamp: number): string {
   if (!timestamp) return "unknown";
   const date = new Date(timestamp);
-  return date.toISOString().split("T")[0] ?? "unknown";
+  return format(date, "yyyy-MM-dd");
 }
 
 function parseDate(dateStr: string): number {

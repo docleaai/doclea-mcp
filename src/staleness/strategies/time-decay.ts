@@ -5,6 +5,7 @@
  * refreshed or accessed.
  */
 
+import { differenceInSeconds } from "date-fns";
 import type { Memory } from "@/types";
 import type { StalenessSignal, TimeDecayStrategyConfig } from "../types";
 import {
@@ -46,8 +47,11 @@ export class TimeDecayStrategy
     // Priority: lastRefreshedAt > accessedAt > createdAt
     const anchor = this.getAnchorTimestamp(memory);
 
-    // Calculate age in days
-    const ageSeconds = Math.max(0, now - anchor);
+    // Calculate age in days using date-fns
+    // Convert Unix timestamps (seconds) to Date objects for date-fns
+    const nowDate = new Date(now * 1000);
+    const anchorDate = new Date(anchor * 1000);
+    const ageSeconds = Math.max(0, differenceInSeconds(nowDate, anchorDate));
     const ageDays = ageSeconds / SECONDS_PER_DAY;
 
     // If very recent, no staleness signal

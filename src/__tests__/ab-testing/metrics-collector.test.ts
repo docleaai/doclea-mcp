@@ -358,4 +358,104 @@ describe("MetricsCollector", () => {
       expect(collector1).toBe(collector2);
     });
   });
+
+  describe("percentile calculations", () => {
+    it("should calculate correct percentiles for latency values", async () => {
+      const collector = new MetricsCollector();
+      await collector.initialize(db);
+
+      // Insert 100 latency samples with known values (1 to 100)
+      for (let i = 1; i <= 100; i++) {
+        collector.record({
+          experimentId: "exp-percentile",
+          variantId: "control",
+          sessionHash: `hash-${i}`,
+          latencyMs: i,
+          resultCount: 10,
+          timestamp: Date.now(),
+        });
+      }
+
+      await collector.flush();
+
+      const metrics = collector.getAggregatedMetrics("exp-percentile");
+      expect(metrics.length).toBe(1);
+
+      const control = metrics[0];
+      // For values 1-100 using simple-statistics quantileSorted:
+      // p50 = 50.5, p95 = 95.5, p99 = 99.5
+      expect(control.p50LatencyMs).toBeCloseTo(50.5, 1);
+      expect(control.p95LatencyMs).toBeCloseTo(95.5, 1);
+      expect(control.p99LatencyMs).toBeCloseTo(99.5, 1);
+    });
+
+    it("should return zeros for empty dataset", async () => {
+      const collector = new MetricsCollector();
+      await collector.initialize(db);
+
+      // No records for this experiment
+      const metrics = collector.getAggregatedMetrics("nonexistent-exp");
+      expect(metrics.length).toBe(0);
+    });
+
+    it("should handle single value correctly", async () => {
+      const collector = new MetricsCollector();
+      await collector.initialize(db);
+
+      collector.record({
+        experimentId: "exp-single",
+        variantId: "control",
+        sessionHash: "single",
+        latencyMs: 42,
+        resultCount: 10,
+        timestamp: Date.now(),
+      });
+
+      await collector.flush();
+
+      const metrics = collector.getAggregatedMetrics("exp-single");
+      expect(metrics.length).toBe(1);
+
+      // With a single value, all percentiles should equal that value
+      const control = metrics[0];
+      expect(control.p50LatencyMs).toBe(42);
+      expect(control.p95LatencyMs).toBe(42);
+      expect(control.p99LatencyMs).toBe(42);
+    });
+
+    it("should handle two values correctly", async () => {
+      const collector = new MetricsCollector();
+      await collector.initialize(db);
+
+      collector.record({
+        experimentId: "exp-two",
+        variantId: "control",
+        sessionHash: "first",
+        latencyMs: 10,
+        resultCount: 10,
+        timestamp: Date.now(),
+      });
+
+      collector.record({
+        experimentId: "exp-two",
+        variantId: "control",
+        sessionHash: "second",
+        latencyMs: 20,
+        resultCount: 10,
+        timestamp: Date.now(),
+      });
+
+      await collector.flush();
+
+      const metrics = collector.getAggregatedMetrics("exp-two");
+      expect(metrics.length).toBe(1);
+
+      const control = metrics[0];
+      // p50 of [10, 20] should be 15 (linear interpolation at 0.5)
+      expect(control.p50LatencyMs).toBe(15);
+      // p95 and p99 with only 2 values return the max value (20)
+      expect(control.p95LatencyMs).toBe(20);
+      expect(control.p99LatencyMs).toBe(20);
+    });
+  });
 });

@@ -5,6 +5,7 @@
  * Supports exponential, linear, and step decay functions.
  */
 
+import { differenceInSeconds } from "date-fns";
 import type { RecencyDecay } from "../types";
 
 const SECONDS_PER_DAY = 86400;
@@ -27,7 +28,13 @@ export function calculateRecencyScore(
 ): number {
   // Use the more recent timestamp
   const lastActivity = Math.max(createdAt, accessedAt);
-  const ageSeconds = Math.max(0, now - lastActivity);
+  // Convert Unix timestamps (seconds) to Date objects for date-fns
+  const nowDate = new Date(now * 1000);
+  const lastActivityDate = new Date(lastActivity * 1000);
+  const ageSeconds = Math.max(
+    0,
+    differenceInSeconds(nowDate, lastActivityDate),
+  );
   const ageDays = ageSeconds / SECONDS_PER_DAY;
 
   switch (config.type) {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import { CodeGraphStorage } from "@/database/code-graph";
 import { CrossLayerRelationStorage } from "@/database/cross-layer-relations";
@@ -57,8 +57,8 @@ export async function storeMemory(
   vectors: VectorStore,
   embeddings: EmbeddingClient,
 ): Promise<StoreMemoryResult> {
-  const id = `mem_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const qdrantId = `vec_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const id = `mem_${nanoid(16)}`;
+  const qdrantId = `vec_${nanoid(16)}`;
 
   // Handle auto-tagging if enabled
   let tags = input.tags || [];

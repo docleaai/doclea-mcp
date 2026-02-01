@@ -11,6 +11,7 @@
  */
 
 import { BUILT_IN_TAXONOMY } from "../tagging/built-in-taxonomy";
+import { formatTag } from "../utils/slugify";
 import type { Migration, MigrationDatabase } from "./types";
 
 /**
@@ -32,18 +33,6 @@ function buildAliasIndex(): Map<string, string> {
   }
 
   return index;
-}
-
-/**
- * Format a raw tag into normalized format
- * lowercase → replace non-alphanum with hyphen → collapse hyphens → trim
- */
-function formatTag(tag: string): string {
-  return tag
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 /**

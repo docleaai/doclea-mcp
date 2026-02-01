@@ -7,6 +7,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { formatTag } from "@/utils/slugify";
 import { truncateToTokens } from "@/utils/tokens";
 import { getTaxonomyManager } from "./taxonomy";
 import {
@@ -208,18 +209,7 @@ export class LLMTagger {
     const taxonomy = getTaxonomyManager();
     const normalized = taxonomy.normalize(tag);
     // Fallback to basic formatting if taxonomy returns null (strict mode)
-    return normalized ?? this.formatTag(tag);
-  }
-
-  /**
-   * Basic tag formatting (fallback for strict mode)
-   */
-  private formatTag(tag: string): string {
-    return tag
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+    return normalized ?? formatTag(tag);
   }
 }
 

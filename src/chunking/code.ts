@@ -250,8 +250,6 @@ export interface CodeChunkOptions {
   includeImports?: boolean;
   /** Whether to split large functions (default: true) */
   splitLargeFunctions?: boolean;
-  /** Tokenizer model to use */
-  model?: string;
 }
 
 /**
@@ -403,7 +401,6 @@ export async function chunkCode(
     maxTokens = 512,
     includeImports = false,
     splitLargeFunctions = true,
-    model,
   } = options;
 
   const config = LANGUAGE_CONFIGS[language];
@@ -446,7 +443,7 @@ export async function chunkCode(
   // Process imports as a single chunk first (if not including with each)
   if (!includeImports && importNodes.length > 0) {
     const importText = importNodes.map((n) => n.text).join("\n");
-    const tokenCount = await countTokens(importText, model);
+    const tokenCount = await countTokens(importText);
 
     chunks.push({
       content: importText,
@@ -475,7 +472,7 @@ export async function chunkCode(
     }
 
     const nodeText = includeImports ? importBlock + node.text : node.text;
-    const tokenCount = await countTokens(nodeText, model);
+    const tokenCount = await countTokens(nodeText);
 
     const isFunction = config.functionNodes.includes(node.type);
     const isClass = config.classNodes.includes(node.type);
@@ -489,7 +486,6 @@ export async function chunkCode(
         config,
         maxTokens,
         includeImports ? importBlock : "",
-        model,
       );
       chunks.push(...subChunks);
     } else {
@@ -525,7 +521,6 @@ async function splitLargeNode(
   config: LanguageConfig,
   maxTokens: number,
   importBlock: string,
-  model?: string,
 ): Promise<CodeChunk[]> {
   const chunks: CodeChunk[] = [];
   const parentName = extractNodeName(node, language);
@@ -548,11 +543,11 @@ async function splitLargeNode(
 
       for (const method of methods) {
         const methodText = `${importBlock + classStart + method.text}\n}`;
-        const _tokenCount = await countTokens(methodText, model);
+        const _tokenCount = await countTokens(methodText);
 
         chunks.push({
           content: method.text,
-          tokenCount: await countTokens(method.text, model),
+          tokenCount: await countTokens(method.text),
           metadata: {
             startLine: method.startPosition.row + 1,
             endLine: method.endPosition.row + 1,
@@ -581,7 +576,7 @@ async function splitLargeNode(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const lineTokens = await countTokens(line, model);
+    const lineTokens = await countTokens(line);
 
     if (currentTokens + lineTokens > maxTokens && currentChunk.length > 0) {
       // Save current chunk
@@ -683,7 +678,7 @@ export async function chunkCodeFallback(
   _filename: string,
   options: CodeChunkOptions = {},
 ): Promise<CodeChunk[]> {
-  const { maxTokens = 512, model } = options;
+  const { maxTokens = 512 } = options;
   const lines = code.split("\n");
   const chunks: CodeChunk[] = [];
 
@@ -693,7 +688,7 @@ export async function chunkCodeFallback(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const lineTokens = await countTokens(line, model);
+    const lineTokens = await countTokens(line);
 
     // Start a new chunk if adding this line would exceed the limit
     if (currentTokens + lineTokens > maxTokens && currentChunk.length > 0) {

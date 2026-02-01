@@ -5,6 +5,7 @@
  */
 
 import type { Database } from "bun:sqlite";
+import { quantileSorted } from "simple-statistics";
 import type { AggregatedMetrics, MetricsSample } from "./types";
 
 // ============================================
@@ -227,11 +228,12 @@ export class MetricsCollector {
       return { p50: 0, p95: 0, p99: 0 };
     }
 
+    // Array is already sorted by the SQL ORDER BY clause
     const latencies = rows.map((r) => r.latency_ms);
     return {
-      p50: percentile(latencies, 50),
-      p95: percentile(latencies, 95),
-      p99: percentile(latencies, 99),
+      p50: quantileSorted(latencies, 0.5),
+      p95: quantileSorted(latencies, 0.95),
+      p99: quantileSorted(latencies, 0.99),
     };
   }
 
@@ -302,25 +304,6 @@ export class MetricsCollector {
     await this.flush();
     this.initialized = false;
   }
-}
-
-/**
- * Calculate percentile from sorted array.
- */
-function percentile(sortedValues: number[], p: number): number {
-  if (sortedValues.length === 0) return 0;
-
-  const index = (p / 100) * (sortedValues.length - 1);
-  const lower = Math.floor(index);
-  const upper = Math.ceil(index);
-
-  if (lower === upper) {
-    return sortedValues[lower];
-  }
-
-  // Linear interpolation
-  const fraction = index - lower;
-  return sortedValues[lower] * (1 - fraction) + sortedValues[upper] * fraction;
 }
 
 // Singleton instance

@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
+import { nanoid } from "nanoid";
 
 /**
  * Types of relationships between memories
@@ -49,7 +49,7 @@ export class MemoryRelationStorage {
     weight = 1.0,
     metadata?: Record<string, any>,
   ): Promise<MemoryRelation> {
-    const id = randomUUID();
+    const id = nanoid(21);
     const createdAt = Date.now();
 
     const stmt = this.db.prepare(`

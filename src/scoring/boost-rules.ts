@@ -4,6 +4,7 @@
  * Evaluates boost rules against memories and applies multiplicative factors.
  */
 
+import { differenceInSeconds } from "date-fns";
 import type { AppliedBoost, Memory } from "@/types";
 import type { BoostCondition, BoostRule } from "./types";
 
@@ -72,7 +73,14 @@ function evaluateCondition(
   switch (condition.type) {
     case "recency": {
       const lastActivity = Math.max(memory.createdAt, memory.accessedAt);
-      const ageDays = (now - lastActivity) / SECONDS_PER_DAY;
+      // Convert Unix timestamps (seconds) to Date objects for date-fns
+      const nowDate = new Date(now * 1000);
+      const lastActivityDate = new Date(lastActivity * 1000);
+      const ageSeconds = Math.max(
+        0,
+        differenceInSeconds(nowDate, lastActivityDate),
+      );
+      const ageDays = ageSeconds / SECONDS_PER_DAY;
       const matches = ageDays <= condition.maxDays;
       return {
         matches,
@@ -104,7 +112,14 @@ function evaluateCondition(
 
     case "staleness": {
       const lastActivity = Math.max(memory.createdAt, memory.accessedAt);
-      const ageDays = (now - lastActivity) / SECONDS_PER_DAY;
+      // Convert Unix timestamps (seconds) to Date objects for date-fns
+      const nowDate = new Date(now * 1000);
+      const lastActivityDate = new Date(lastActivity * 1000);
+      const ageSeconds = Math.max(
+        0,
+        differenceInSeconds(nowDate, lastActivityDate),
+      );
+      const ageDays = ageSeconds / SECONDS_PER_DAY;
       const matches = ageDays >= condition.minDays;
       return {
         matches,

@@ -6,9 +6,9 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { nanoid } from "nanoid";
 import { MigrationRunner, migrations } from "@/migrations";
 import type {
   Chunk,
@@ -545,7 +545,7 @@ export class SqliteStorageBackend implements IStorageBackend {
   // ============================================
 
   createPendingMemory(input: CreatePendingMemoryInput): PendingMemory {
-    const id = `pnd_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const id = `pnd_${nanoid(16)}`;
     const suggestedAt = Math.floor(Date.now() / 1000);
 
     const stmt = this.db.prepare(`

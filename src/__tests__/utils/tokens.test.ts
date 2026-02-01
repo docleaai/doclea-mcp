@@ -1,5 +1,5 @@
 /**
- * Tests for token counting utility
+ * Tests for token counting utility using js-tiktoken (cl100k_base encoding)
  */
 
 import { describe, expect, test } from "bun:test";
@@ -16,9 +16,8 @@ describe("Token Counting", () => {
   describe("countTokens", () => {
     test("should count tokens accurately for simple text", async () => {
       const count = await countTokens("Hello world");
-      expect(count).toBeGreaterThan(0);
-      // "Hello world" is typically 2-3 tokens depending on tokenizer
-      expect(count).toBeLessThanOrEqual(5);
+      // With cl100k_base: "Hello" = 1, " world" = 1 = 2 tokens
+      expect(count).toBe(2);
     });
 
     test("should handle empty strings", async () => {
@@ -27,18 +26,26 @@ describe("Token Counting", () => {
 
     test("should handle whitespace-only strings", async () => {
       const count = await countTokens("   ");
-      expect(count).toBeGreaterThanOrEqual(0);
+      // Three spaces typically encode as a single token in cl100k_base
+      expect(count).toBeGreaterThanOrEqual(1);
     });
 
     test("should handle unicode correctly", async () => {
-      const count = await countTokens("Hello 世界 🌍");
+      const count = await countTokens("Hello 世界");
+      // Unicode characters use multiple tokens in cl100k_base
+      expect(count).toBeGreaterThan(2);
+    });
+
+    test("should handle emojis", async () => {
+      const count = await countTokens("Hello 🌍");
       expect(count).toBeGreaterThan(0);
     });
 
     test("should handle long text", async () => {
       const longText = "word ".repeat(1000);
       const count = await countTokens(longText);
-      expect(count).toBeGreaterThan(500);
+      // "word " is typically 2 tokens, so 1000 repetitions ~ 2000 tokens
+      expect(count).toBeGreaterThan(1000);
     });
 
     test("should handle special characters", async () => {
@@ -62,13 +69,12 @@ describe("Token Counting", () => {
   });
 
   describe("truncateToTokens", () => {
-    test("should truncate to approximate token limit", async () => {
+    test("should truncate to exact token limit", async () => {
       const longText = "word ".repeat(1000);
       const truncated = await truncateToTokens(longText, 100);
       const count = await countTokens(truncated);
-      // Allow small variance due to tokenizer encoding/decoding
-      expect(count).toBeLessThanOrEqual(105);
-      expect(count).toBeGreaterThan(90);
+      // Should be exactly 100 tokens
+      expect(count).toBe(100);
     });
 
     test("should not truncate text under limit", async () => {
@@ -92,8 +98,9 @@ describe("Token Counting", () => {
     test("should preserve whole tokens", async () => {
       const text = "Hello world, this is a longer sentence for testing.";
       const truncated = await truncateToTokens(text, 3);
-      // Should not cut in the middle of a word
-      expect(truncated.endsWith("  ")).toBe(false);
+      // Should decode properly without partial tokens
+      const reencoded = await countTokens(truncated);
+      expect(reencoded).toBe(3);
     });
   });
 
@@ -102,9 +109,9 @@ describe("Token Counting", () => {
       const texts = ["Hello", "World", "Test string here"];
       const counts = await countTokensBatch(texts);
       expect(counts).toHaveLength(3);
-      expect(counts[0]).toBeGreaterThan(0);
-      expect(counts[1]).toBeGreaterThan(0);
-      expect(counts[2]).toBeGreaterThan(0);
+      expect(counts[0]).toBe(1); // "Hello" = 1 token
+      expect(counts[1]).toBe(1); // "World" = 1 token
+      expect(counts[2]).toBeGreaterThan(1); // "Test string here" > 1 token
     });
 
     test("should handle empty array", async () => {
@@ -115,15 +122,14 @@ describe("Token Counting", () => {
     test("should handle array with empty strings", async () => {
       const counts = await countTokensBatch(["Hello", "", "World"]);
       expect(counts).toHaveLength(3);
-      expect(counts[0]).toBeGreaterThan(0);
+      expect(counts[0]).toBe(1);
       expect(counts[1]).toBe(0);
-      expect(counts[2]).toBeGreaterThan(0);
+      expect(counts[2]).toBe(1);
     });
 
     test("should be consistent with single countTokens calls", async () => {
       const texts = ["Hello world", "Test message", "Another one"];
       const batchCounts = await countTokensBatch(texts);
-      // Call sequentially to avoid race condition with model loading
       const singleCounts: number[] = [];
       for (const text of texts) {
         singleCounts.push(await countTokens(text));
@@ -163,12 +169,14 @@ describe("Token Counting", () => {
       const chunks = await splitIntoTokenChunks(longText, 100);
       expect(chunks.length).toBeGreaterThan(1);
 
-      // Each chunk should be approximately within limit
-      // (allow small variance due to tokenizer encoding/decoding)
-      for (const chunk of chunks) {
-        const count = await countTokens(chunk);
-        expect(count).toBeLessThanOrEqual(105);
+      // Each chunk should be exactly at limit (except possibly the last)
+      for (let i = 0; i < chunks.length - 1; i++) {
+        const count = await countTokens(chunks[i]);
+        expect(count).toBe(100);
       }
+      // Last chunk can be smaller
+      const lastCount = await countTokens(chunks[chunks.length - 1]);
+      expect(lastCount).toBeLessThanOrEqual(100);
     });
 
     test("should not split text under limit", async () => {
@@ -179,12 +187,15 @@ describe("Token Counting", () => {
     });
 
     test("should handle overlap", async () => {
-      const longText = "word ".repeat(100);
-      const chunksWithOverlap = await splitIntoTokenChunks(longText, 50, 10);
+      // "word " is 2 tokens in cl100k_base, so 200 repetitions = 201 tokens
+      const longText = "word ".repeat(200);
+      const chunksWithOverlap = await splitIntoTokenChunks(longText, 50, 20);
       const chunksWithoutOverlap = await splitIntoTokenChunks(longText, 50, 0);
 
-      // More chunks when using overlap (sliding window)
-      expect(chunksWithOverlap.length).toBeGreaterThanOrEqual(
+      // With overlap, we get more chunks due to sliding window
+      // Without overlap (step 50): ceil(201/50) = 5 chunks
+      // With overlap 20 (step 30): positions 0, 30, 60, 90, 120, 150, 180 = 7 chunks
+      expect(chunksWithOverlap.length).toBeGreaterThan(
         chunksWithoutOverlap.length,
       );
     });
@@ -203,7 +214,7 @@ describe("Token Counting", () => {
   describe("getTokenInfo", () => {
     test("should return token information", async () => {
       const info = await getTokenInfo("Hello world");
-      expect(info.count).toBeGreaterThan(0);
+      expect(info.count).toBe(2);
       expect(info.tokens).toBeInstanceOf(Array);
       expect(info.tokenIds).toBeInstanceOf(Array);
       expect(info.tokens.length).toBe(info.count);
@@ -223,23 +234,29 @@ describe("Token Counting", () => {
       expect(info1.count).toBe(info2.count);
       expect(info1.tokenIds).toEqual(info2.tokenIds);
     });
+
+    test("should return decodable tokens", async () => {
+      const info = await getTokenInfo("Hello world");
+      // Joining decoded tokens should approximate original text
+      const rejoined = info.tokens.join("");
+      expect(rejoined).toBe("Hello world");
+    });
   });
 
-  describe("Tokenizer caching", () => {
-    test("should cache tokenizer for repeated calls", async () => {
-      // First call initializes tokenizer
+  describe("Synchronous operation (no caching needed)", () => {
+    test("should be fast for repeated calls", async () => {
+      // tiktoken is synchronous and doesn't need lazy loading
       const start1 = Date.now();
       await countTokens("First call");
       const time1 = Date.now() - start1;
 
-      // Second call should use cached tokenizer (faster)
       const start2 = Date.now();
       await countTokens("Second call");
       const time2 = Date.now() - start2;
 
-      // Second call should be significantly faster (allowing for variance)
-      // Note: This test might be flaky, so we just verify it doesn't throw
-      expect(time2).toBeLessThanOrEqual(time1 + 100);
+      // Both calls should be very fast (< 50ms each)
+      expect(time1).toBeLessThan(50);
+      expect(time2).toBeLessThan(50);
     });
   });
 
@@ -259,6 +276,18 @@ describe("Token Counting", () => {
     test("should handle control characters", async () => {
       const withControl = "Hello\x00World\x1F";
       const count = await countTokens(withControl);
+      expect(count).toBeGreaterThan(0);
+    });
+
+    test("should handle null bytes", async () => {
+      const withNull = "Hello\0World";
+      const count = await countTokens(withNull);
+      expect(count).toBeGreaterThan(0);
+    });
+
+    test("should handle tab characters", async () => {
+      const withTabs = "Hello\t\tWorld";
+      const count = await countTokens(withTabs);
       expect(count).toBeGreaterThan(0);
     });
   });

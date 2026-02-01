@@ -7,6 +7,7 @@
  * Optionally applies time-based decay to confidence scores.
  */
 
+import { differenceInSeconds } from "date-fns";
 import type { Memory } from "@/types";
 import type { ConfidenceDecayConfig, ConfidenceDecaySettings } from "../types";
 
@@ -82,8 +83,11 @@ export function calculateDecayedConfidenceScore(
     return cached.value;
   }
 
-  // Calculate age in days
-  const ageSeconds = Math.max(0, now - anchor);
+  // Calculate age in days using date-fns
+  // Convert Unix timestamps (seconds) to Date objects for date-fns
+  const nowDate = new Date(now * 1000);
+  const anchorDate = new Date(anchor * 1000);
+  const ageSeconds = Math.max(0, differenceInSeconds(nowDate, anchorDate));
   const ageDays = ageSeconds / SECONDS_PER_DAY;
 
   // Handle future timestamps (edge case)

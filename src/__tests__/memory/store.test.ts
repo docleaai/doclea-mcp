@@ -1,20 +1,27 @@
 /**
  * Tests for storeMemory function helper logic
  * Tests the pure function patterns used in store.ts
+ *
+ * IDs use nanoid for URL-safe, collision-resistant generation.
+ * Nanoid alphabet: A-Za-z0-9_- (URL-safe)
  */
 
 import { describe, expect, test } from "bun:test";
+import { nanoid } from "nanoid";
+
+/**
+ * Nanoid character set: A-Za-z0-9_-
+ */
+const NANOID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 describe("storeMemory", () => {
   describe("ID generation", () => {
     function generateMemoryId(): string {
-      const uuid = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-      return `mem_${uuid}`;
+      return `mem_${nanoid(16)}`;
     }
 
     function generateVectorId(): string {
-      const uuid = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-      return `vec_${uuid}`;
+      return `vec_${nanoid(16)}`;
     }
 
     test("memory ID has correct prefix", () => {
@@ -47,10 +54,20 @@ describe("storeMemory", () => {
       expect(ids.size).toBe(100);
     });
 
-    test("ID contains only alphanumeric after prefix", () => {
+    test("ID contains only valid nanoid characters after prefix", () => {
       const id = generateMemoryId();
       const suffix = id.slice(4);
-      expect(/^[a-f0-9]+$/.test(suffix)).toBe(true);
+      expect(NANOID_PATTERN.test(suffix)).toBe(true);
+    });
+
+    test("memory ID matches expected pattern", () => {
+      const id = generateMemoryId();
+      expect(/^mem_[A-Za-z0-9_-]{16}$/.test(id)).toBe(true);
+    });
+
+    test("vector ID matches expected pattern", () => {
+      const id = generateVectorId();
+      expect(/^vec_[A-Za-z0-9_-]{16}$/.test(id)).toBe(true);
     });
   });
 
@@ -194,8 +211,8 @@ describe("storeMemory", () => {
       sourcePr?: string;
       experts?: string[];
     }): MemoryInput {
-      const id = `mem_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-      const qdrantId = `vec_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      const id = `mem_${nanoid(16)}`;
+      const qdrantId = `vec_${nanoid(16)}`;
 
       return {
         id,
@@ -276,6 +293,17 @@ describe("storeMemory", () => {
 
       expect(data1.id).not.toBe(data2.id);
       expect(data1.qdrantId).not.toBe(data2.qdrantId);
+    });
+
+    test("generated IDs have correct format", () => {
+      const data = createMemoryData({
+        type: "note",
+        title: "Test",
+        content: "Content",
+      });
+
+      expect(/^mem_[A-Za-z0-9_-]{16}$/.test(data.id)).toBe(true);
+      expect(/^vec_[A-Za-z0-9_-]{16}$/.test(data.qdrantId)).toBe(true);
     });
   });
 

@@ -9,6 +9,7 @@
  * - Factory pattern for safe async initialization
  */
 
+import { formatTag } from "@/utils/slugify";
 import { BUILT_IN_TAXONOMY } from "./built-in-taxonomy";
 import { stringSimilarity } from "./levenshtein";
 import type {
@@ -232,7 +233,7 @@ export class TaxonomyManager {
     }
 
     // 2. Format unknown tag
-    const formatted = this.formatTag(normalized);
+    const formatted = this.formatTagInternal(normalized);
 
     // 3. In strict mode, reject unknown tags
     if (this.config.strictMode) {
@@ -269,14 +270,10 @@ export class TaxonomyManager {
 
   /**
    * Format a raw tag into normalized format
-   * lowercase → replace non-alphanum with hyphen → collapse hyphens → trim
+   * Uses shared slugify utility for consistency
    */
-  private formatTag(tag: string): string {
-    return tag
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-") // Replace non-alphanum with hyphen
-      .replace(/-+/g, "-") // Collapse multiple hyphens
-      .replace(/^-|-$/g, ""); // Trim leading/trailing hyphens
+  private formatTagInternal(tag: string): string {
+    return formatTag(tag);
   }
 
   // =========================================================================

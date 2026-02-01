@@ -50,6 +50,12 @@ import {
   generatePRDescription,
 } from "./tools/git";
 import {
+  formatStatusResult,
+  graphragBuild,
+  graphragSearch,
+  graphragStatus,
+} from "./tools/graphrag";
+import {
   deleteMemory,
   getMemory,
   searchMemory,
@@ -2750,6 +2756,211 @@ server.registerTool(
           ),
         },
       ],
+    };
+  },
+);
+
+// ============================================================================
+// GraphRAG Tools
+// ============================================================================
+
+server.registerTool(
+  "doclea_graphrag_build",
+  {
+    title: "Build GraphRAG Knowledge Graph",
+    description:
+      "Build or update the GraphRAG knowledge graph from memories. Extracts entities, relationships, and detects communities.",
+    inputSchema: {
+      memoryIds: z
+        .array(z.string())
+        .optional()
+        .describe("Specific memory IDs to process (default: all)"),
+      reindexAll: z
+        .boolean()
+        .optional()
+        .describe("Clear existing graph and rebuild from scratch"),
+      generateReports: z
+        .boolean()
+        .optional()
+        .describe("Generate community reports after building"),
+      communityLevels: z
+        .number()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("Number of community hierarchy levels (1-5)"),
+    },
+  },
+  async (args) => {
+    const result = await graphragBuild(
+      {
+        memoryIds: args.memoryIds,
+        reindexAll: args.reindexAll ?? false,
+        generateReports: args.generateReports ?? true,
+        communityLevels: args.communityLevels ?? 3,
+      },
+      storage,
+      embeddings,
+      vectors,
+    );
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_graphrag_search",
+  {
+    title: "Search GraphRAG Knowledge Graph",
+    description:
+      "Search the knowledge graph using local (entity-centric), global (community-centric), or drift (iterative) modes.",
+    inputSchema: {
+      query: z.string().describe("Search query"),
+      mode: z
+        .enum(["local", "global", "drift"])
+        .optional()
+        .describe("Search mode: local, global, or drift"),
+      limit: z.number().min(1).max(100).optional().describe("Maximum results"),
+      communityLevel: z
+        .number()
+        .min(0)
+        .max(5)
+        .optional()
+        .describe("Community level for global search"),
+      maxIterations: z
+        .number()
+        .min(1)
+        .max(10)
+        .optional()
+        .describe("Maximum iterations for drift search"),
+      maxDepth: z
+        .number()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("Graph traversal depth for local search"),
+    },
+  },
+  async (args) => {
+    const result = await graphragSearch(
+      {
+        query: args.query,
+        mode: args.mode ?? "local",
+        limit: args.limit ?? 20,
+        communityLevel: args.communityLevel ?? 1,
+        maxIterations: args.maxIterations ?? 3,
+        maxDepth: args.maxDepth ?? 2,
+      },
+      storage,
+      embeddings,
+      vectors,
+    );
+
+    // Format result based on mode
+    let formattedResult: string;
+    if (result.mode === "local") {
+      const { entities, relationships, totalExpanded } = result.result;
+      formattedResult = JSON.stringify(
+        {
+          mode: "local",
+          totalEntities: entities.length,
+          totalExpanded,
+          entities: entities.slice(0, args.limit ?? 20).map((e) => ({
+            name: e.entity.canonicalName,
+            type: e.entity.entityType,
+            score: Math.round(e.relevanceScore * 100) / 100,
+            depth: e.depth,
+            mentions: e.entity.mentionCount,
+            description: e.entity.description,
+          })),
+          relationships: relationships.slice(0, 10).map((r) => ({
+            type: r.relationshipType,
+            strength: r.strength,
+            description: r.description,
+          })),
+        },
+        null,
+        2,
+      );
+    } else if (result.mode === "global") {
+      const { answer, sourceCommunities, tokenUsage } = result.result;
+      formattedResult = JSON.stringify(
+        {
+          mode: "global",
+          answer,
+          sources: sourceCommunities.map((s) => ({
+            title: s.report.title,
+            relevance: Math.round(s.relevanceScore * 100) / 100,
+            summary: s.report.summary,
+          })),
+          tokenUsage,
+        },
+        null,
+        2,
+      );
+    } else {
+      const { entities, iterations, hypotheses, converged } = result.result;
+      formattedResult = JSON.stringify(
+        {
+          mode: "drift",
+          converged,
+          iterations,
+          hypothesesGenerated: hypotheses.length,
+          totalEntities: entities.length,
+          entities: entities.slice(0, args.limit ?? 20).map((e) => ({
+            name: e.entity.canonicalName,
+            type: e.entity.entityType,
+            score: Math.round(e.relevanceScore * 100) / 100,
+          })),
+          lastHypothesis: hypotheses[hypotheses.length - 1]?.slice(0, 300),
+        },
+        null,
+        2,
+      );
+    }
+
+    return {
+      content: [{ type: "text", text: formattedResult }],
+    };
+  },
+);
+
+server.registerTool(
+  "doclea_graphrag_status",
+  {
+    title: "GraphRAG Status",
+    description: "Get statistics about the GraphRAG knowledge graph.",
+    inputSchema: {
+      includeGraphStats: z
+        .boolean()
+        .optional()
+        .describe("Include detailed graph statistics"),
+      includeTopEntities: z
+        .boolean()
+        .optional()
+        .describe("Include list of top entities"),
+      topEntitiesLimit: z
+        .number()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe("Number of top entities to return"),
+    },
+  },
+  async (args) => {
+    const result = graphragStatus(
+      {
+        includeGraphStats: args.includeGraphStats ?? true,
+        includeTopEntities: args.includeTopEntities ?? true,
+        topEntitiesLimit: args.topEntitiesLimit ?? 10,
+      },
+      storage,
+    );
+
+    return {
+      content: [{ type: "text", text: formatStatusResult(result) }],
     };
   },
 );

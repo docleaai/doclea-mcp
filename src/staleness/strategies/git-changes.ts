@@ -5,6 +5,7 @@
  * in git since the memory was last refreshed.
  */
 
+import { subMonths } from "date-fns";
 import simpleGit, { type SimpleGit } from "simple-git";
 import type { Memory } from "@/types";
 import type { GitChangesStrategyConfig, StalenessSignal } from "../types";
@@ -170,9 +171,8 @@ export class GitChangesStrategy
     const fileChanges = new Map<string, number>();
 
     try {
-      // Get file changes from the last 6 months
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      // Get file changes from the last 6 months using date-fns
+      const sixMonthsAgo = subMonths(new Date(), 6);
 
       // Use git log to get all file changes with timestamps
       // Format: timestamp|filename (one per line)

@@ -10,14 +10,13 @@ export {
   type ExcludePattern,
   type IncludePattern,
 } from "./scan-patterns";
+export { formatTag } from "./slugify";
 export {
   countTokens,
   countTokensBatch,
   fitsInTokenBudget,
   getTokenInfo,
-  getTokenizer,
   splitIntoTokenChunks,
-  TOKENIZER_MODELS,
-  type TokenizerModelName,
+  type TokenInfo,
   truncateToTokens,
 } from "./tokens";

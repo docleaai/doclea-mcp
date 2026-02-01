@@ -49,8 +49,6 @@ export interface MarkdownChunkOptions {
   overlap?: number;
   /** Whether to include header hierarchy in each chunk (default: true) */
   includeHeaderContext?: boolean;
-  /** Tokenizer model to use (default: mxbai-embed-xsmall-v1) */
-  model?: string;
 }
 
 // Regex patterns
@@ -200,7 +198,6 @@ function parseMarkdownSections(markdown: string): MarkdownSection[] {
 async function splitLargeSection(
   section: MarkdownSection,
   maxTokens: number,
-  model?: string,
 ): Promise<MarkdownSection[]> {
   const lines = section.content.split("\n");
   const result: MarkdownSection[] = [];
@@ -231,7 +228,7 @@ async function splitLargeSection(
         // Code block complete - add atomically
         inCodeBlock = false;
         const codeBlockContent = codeBlockBuffer.join("\n");
-        const codeBlockTokens = await countTokens(codeBlockContent, model);
+        const codeBlockTokens = await countTokens(codeBlockContent);
 
         // If code block alone exceeds limit, it gets its own chunk
         if (codeBlockTokens > maxTokens) {
@@ -291,7 +288,7 @@ async function splitLargeSection(
     }
 
     // Regular line handling
-    const lineTokens = await countTokens(line, model);
+    const lineTokens = await countTokens(line);
 
     // Handle single line that exceeds token limit - split by tokens
     if (lineTokens > maxTokens) {
@@ -312,7 +309,7 @@ async function splitLargeSection(
       }
 
       // Split the long line into token-based chunks
-      const lineChunks = await splitIntoTokenChunks(line, maxTokens, 0, model);
+      const lineChunks = await splitIntoTokenChunks(line, maxTokens, 0);
       for (const lineChunk of lineChunks) {
         result.push({
           content: lineChunk,
@@ -386,12 +383,7 @@ export async function chunkMarkdown(
   markdown: string,
   options: MarkdownChunkOptions = {},
 ): Promise<MarkdownChunk[]> {
-  const {
-    maxTokens = 256,
-    overlap = 0,
-    includeHeaderContext = true,
-    model,
-  } = options;
+  const { maxTokens = 256, overlap = 0, includeHeaderContext = true } = options;
 
   if (!markdown || !markdown.trim()) {
     return [];
@@ -408,13 +400,13 @@ export async function chunkMarkdown(
   const processedSections: MarkdownSection[] = [];
 
   for (const section of sections) {
-    const tokenCount = await countTokens(section.content, model);
+    const tokenCount = await countTokens(section.content);
 
     if (tokenCount <= maxTokens) {
       processedSections.push(section);
     } else {
       // Split large section
-      const subSections = await splitLargeSection(section, maxTokens, model);
+      const subSections = await splitLargeSection(section, maxTokens);
       processedSections.push(...subSections);
     }
   }
@@ -436,7 +428,7 @@ export async function chunkMarkdown(
       }
     }
 
-    const tokenCount = await countTokens(content, model);
+    const tokenCount = await countTokens(content);
 
     chunks.push({
       content,
