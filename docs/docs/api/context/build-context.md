@@ -48,8 +48,11 @@ Calls: decodeJWT, verifySignature
   "totalTokens": 1250,
   "sectionsIncluded": 4,
   "ragSections": 2,
-  "kagSections": 2,
-  "truncated": false
+  "kagSections": 1,
+  "graphragSections": 1,
+  "truncated": false,
+  "route": "hybrid",
+  "cacheHit": false
 }
 ```
 
@@ -62,8 +65,10 @@ Calls: decodeJWT, verifySignature
 | `query` | `string` | Yes | - | Search query to find relevant context |
 | `tokenBudget` | `number` | No | `4000` | Maximum tokens (100-100,000) |
 | `includeCodeGraph` | `boolean` | No | `true` | Include KAG code relationships |
+| `includeGraphRAG` | `boolean` | No | `true` | Include GraphRAG entity/community retrieval |
 | `filters` | `object` | No | - | Filters for memory search |
 | `template` | `string` | No | `default` | Output format template |
+| `includeEvidence` | `boolean` | No | `false` | Include structured section-level selection evidence |
 
 ### Filters Object
 
@@ -148,11 +153,33 @@ Calls: decodeJWT, verifySignature
 }
 ```
 
+### Disable GraphRAG
+
+```json
+{
+  "query": "authentication flow",
+  "includeGraphRAG": false
+}
+```
+
+### With Evidence Mode
+
+```
+"Build context and show why each section was selected"
+```
+
+```json
+{
+  "query": "authentication strategy",
+  "includeEvidence": true
+}
+```
+
 ---
 
 ## Response Schema
 
-The tool returns formatted markdown with embedded metadata.
+The tool returns formatted markdown with embedded metadata. When `includeEvidence` is `true`, it also includes a machine-readable evidence array.
 
 ### Context Structure
 
@@ -161,6 +188,9 @@ The tool returns formatted markdown with embedded metadata.
 
 ## Relevant Memories
 {RAG sections sorted by relevance}
+
+## Knowledge Graph Insights
+{GraphRAG entity/community sections}
 
 ## Code Relationships
 {KAG sections with call graphs and implementations}
@@ -178,7 +208,54 @@ interface ContextMetadata {
   sectionsIncluded: number; // Total sections
   ragSections: number;      // Memory sections count
   kagSections: number;      // Code sections count
+  graphragSections: number; // Knowledge graph section count
   truncated: boolean;       // True if some results excluded
+  route: "memory" | "code" | "hybrid";
+  cacheHit: boolean;
+}
+
+interface ContextEvidenceItem {
+  id: string;
+  title: string;
+  source: "rag" | "kag" | "graphrag";
+  rank: number;
+  relevance: number;
+  rerankerScore?: number;
+  rerankerBreakdown?: {
+    semantic: number;
+    sourceBalance: number;
+    novelty: number;
+    redundancyPenalty: number;
+  };
+  tokens: number;
+  included: boolean;
+  exclusionReason?: "token_budget";
+  reason: string;
+  queryTerms: string[];
+  memory?: {
+    id: string;
+    type: "decision" | "solution" | "pattern" | "architecture" | "note";
+    tags: string[];
+    importance: number;
+    relatedFiles: string[];
+  };
+  code?: {
+    nodeId: string;
+    nodeType: "function" | "class" | "interface" | "type" | "module" | "package";
+    filePath: string;
+    matchedEntity: string;
+    callers: number;
+    calls: number;
+    implementations?: number;
+  };
+  graph?: {
+    entityId: string;
+    entityType: "PERSON" | "ORGANIZATION" | "TECHNOLOGY" | "CONCEPT" | "LOCATION" | "EVENT" | "PRODUCT" | "OTHER";
+    mentionCount: number;
+    relationshipCount: number;
+    communityIds: string[];
+    sourceMemoryIds: string[];
+  };
 }
 ```
 
@@ -225,15 +302,16 @@ These are used to look up relevant code graph entries.
 
 ## Budget Allocation
 
-Within the token budget:
+Within the token budget (adaptive by query intent):
 
 | Source | Allocation | Purpose |
 |--------|------------|---------|
-| RAG | 70% | Semantic memory search |
-| KAG | 30% | Code graph relationships |
+| RAG | 75% (memory) / 55% (hybrid) / 20% (code) | Semantic memory search |
+| KAG | 10% (memory) / 30% (hybrid) / 65% (code) | Code graph relationships |
+| GraphRAG | 15% (all routes) | Entity + community graph retrieval |
 | Overhead | ~200 | Headers and formatting |
 
-Sections are ranked by relevance and greedily selected until budget is exhausted.
+Sections are ranked by a hybrid fusion reranker (semantic score + source-balance target + novelty coverage) and greedily selected until budget is exhausted. The selected route is returned in metadata.
 
 ---
 
@@ -242,6 +320,8 @@ Sections are ranked by relevance and greedily selected until budget is exhausted
 Results are automatically cached when caching is enabled:
 
 - Cache key: hash of query + filters + template + scoring config
+- Includes `includeGraphRAG` in cache key to isolate graph-enabled responses
+- Includes `includeEvidence` in cache key to isolate evidence-mode responses
 - Default TTL: 5 minutes
 - Invalidated when referenced memories change
 

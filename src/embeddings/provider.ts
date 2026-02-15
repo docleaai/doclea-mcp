@@ -41,7 +41,58 @@ export function createEmbeddingClient(
 
 // Local HuggingFace Text Embeddings Inference
 class LocalTEIClient implements EmbeddingClient {
-  constructor(private endpoint: string) {}
+  private readonly maxBatchSize: number;
+
+  constructor(private endpoint: string) {
+    const parsed = Number.parseInt(
+      process.env.DOCLEA_LOCAL_EMBED_MAX_BATCH_SIZE ?? "32",
+      10,
+    );
+    this.maxBatchSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 32;
+  }
+
+  private async requestBatch(texts: string[]): Promise<number[][]> {
+    if (texts.length > this.maxBatchSize) {
+      const vectors: number[][] = [];
+      for (let i = 0; i < texts.length; i += this.maxBatchSize) {
+        const chunk = texts.slice(i, i + this.maxBatchSize);
+        const chunkVectors = await this.requestBatch(chunk);
+        vectors.push(...chunkVectors);
+      }
+      return vectors;
+    }
+
+    const response = await fetch(`${this.endpoint}/embed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: texts }),
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+
+    const responseText = await response.text().catch(() => "");
+    const normalizedError =
+      `${response.statusText} ${responseText}`.toLowerCase();
+    const isPayloadTooLarge =
+      response.status === 413 ||
+      normalizedError.includes("payload too large") ||
+      normalizedError.includes("entity too large") ||
+      normalizedError.includes("request body too large");
+
+    if (isPayloadTooLarge && texts.length > 1) {
+      const midpoint = Math.ceil(texts.length / 2);
+      const left = await this.requestBatch(texts.slice(0, midpoint));
+      const right = await this.requestBatch(texts.slice(midpoint));
+      return [...left, ...right];
+    }
+
+    const detail = responseText ? `: ${responseText.slice(0, 240)}` : "";
+    throw new Error(
+      `TEI embed batch failed: ${response.status} ${response.statusText}${detail}`,
+    );
+  }
 
   async embed(text: string): Promise<number[]> {
     const response = await fetch(`${this.endpoint}/embed`, {
@@ -60,17 +111,8 @@ class LocalTEIClient implements EmbeddingClient {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await fetch(`${this.endpoint}/embed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inputs: texts }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`TEI embed batch failed: ${response.statusText}`);
-    }
-
-    return response.json();
+    if (texts.length === 0) return [];
+    return this.requestBatch(texts);
   }
 }
 

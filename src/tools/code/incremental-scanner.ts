@@ -37,10 +37,12 @@ export class IncrementalScanner {
    */
   async scanIncremental(
     files: Array<{ path: string; content: string }>,
-    _options: ScanOptions = {},
+    options: ScanOptions = {},
   ): Promise<IncrementalScanResult> {
     // 1. Detect changes
-    const changes = await this.changeDetector.detectChanges(files);
+    const changes = await this.changeDetector.detectChanges(files, {
+      detectDeleted: options.detectDeleted ?? true,
+    });
 
     console.log(`Detected ${changes.length} changes:`, {
       added: changes.filter((c) => c.type === "added").length,
@@ -101,8 +103,10 @@ export class IncrementalScanner {
     );
 
     try {
+      const batch = this.pendingEmbeddings;
+
       // Generate embedding texts
-      const embeddingTexts = this.pendingEmbeddings.map(({ node, chunk }) => {
+      const embeddingTexts = batch.map(({ node, chunk }) => {
         const codeSnippet = chunk.content.slice(0, 500);
         return [
           node.name,
@@ -114,13 +118,34 @@ export class IncrementalScanner {
           .join("\n");
       });
 
-      // Batch embed
-      const vectors = await this.embeddings.embedBatch(embeddingTexts);
+      let vectors: number[][] = [];
+      try {
+        vectors = await this.embeddings.embedBatch(embeddingTexts);
+      } catch (error) {
+        console.warn(
+          "[scan] Batch embedding failed, falling back to per-item:",
+          error,
+        );
+        vectors = await Promise.all(
+          embeddingTexts.map(async (text, index) => {
+            try {
+              return await this.embeddings?.embed(text);
+            } catch (itemError) {
+              const nodeId = batch[index]?.node.id ?? `index_${index}`;
+              console.warn(`[scan] Failed to embed node ${nodeId}:`, itemError);
+              return [];
+            }
+          }),
+        );
+      }
 
       // Upsert all vectors
-      for (let i = 0; i < this.pendingEmbeddings.length; i++) {
-        const { node, chunk, filePath } = this.pendingEmbeddings[i];
+      for (let i = 0; i < batch.length; i++) {
+        const { node, chunk, filePath } = batch[i];
         const vector = vectors[i];
+        if (!vector || vector.length === 0) {
+          continue;
+        }
 
         const payload = {
           memoryId: node.id,
@@ -236,15 +261,15 @@ export class IncrementalScanner {
           if (chunk) {
             this.pendingEmbeddings.push({ node, chunk, filePath: file.path });
             stats.documentsUpdated++;
+
+            if (
+              this.pendingEmbeddings.length >=
+              IncrementalScanner.EMBEDDING_BATCH_SIZE
+            ) {
+              await this.flushEmbeddings(stats);
+            }
           }
         }
-      }
-
-      // Flush embeddings if batch is full
-      if (
-        this.pendingEmbeddings.length >= IncrementalScanner.EMBEDDING_BATCH_SIZE
-      ) {
-        await this.flushEmbeddings(stats);
       }
 
       // Upsert edges

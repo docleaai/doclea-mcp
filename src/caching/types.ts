@@ -67,6 +67,10 @@ export interface CacheKeyComponents {
   tokenBudget: number;
   /** Whether code graph is included */
   includeCodeGraph: boolean;
+  /** Whether GraphRAG retrieval is included */
+  includeGraphRAG: boolean;
+  /** Whether response includes section-level evidence */
+  includeEvidence: boolean;
   /** Filters applied to search */
   filters?: {
     type?: string;

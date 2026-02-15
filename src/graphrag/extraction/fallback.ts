@@ -296,6 +296,7 @@ export function extractRelationshipsFallback(
   sourceEntity: string;
   targetEntity: string;
   relationshipType: string;
+  description?: string;
   strength: number;
   confidence: number;
 }> {
@@ -303,30 +304,78 @@ export function extractRelationshipsFallback(
     sourceEntity: string;
     targetEntity: string;
     relationshipType: string;
+    description?: string;
     strength: number;
     confidence: number;
   }> = [];
+  const pairCounts = new Map<
+    string,
+    { sourceEntity: string; targetEntity: string; count: number }
+  >();
+  const MAX_ENTITIES_PER_SENTENCE = 8;
+  const MAX_RELATIONSHIPS = 64;
 
   // Simple co-occurrence: if two entities appear in the same sentence, they might be related
   const sentences = content.split(/[.!?]+/);
 
   for (const sentence of sentences) {
-    const sentenceEntities = entities.filter((e) =>
-      sentence.includes(e.mentionText),
+    const normalizedSentence = sentence.toLowerCase();
+    const sentenceEntities = entities.filter((e) => {
+      const mention = e.mentionText.toLowerCase();
+      const canonical = e.canonicalName.toLowerCase();
+      return (
+        mention.length > 1 &&
+        canonical.length > 1 &&
+        (normalizedSentence.includes(mention) ||
+          normalizedSentence.includes(canonical))
+      );
+    });
+    const uniqueEntities = Array.from(
+      new Map(
+        sentenceEntities.map((entity) => [
+          entity.canonicalName.toLowerCase(),
+          entity,
+        ]),
+      ).values(),
     );
+    if (
+      uniqueEntities.length < 2 ||
+      uniqueEntities.length > MAX_ENTITIES_PER_SENTENCE
+    ) {
+      continue;
+    }
 
     // Create relationships between entities in the same sentence
-    for (let i = 0; i < sentenceEntities.length; i++) {
-      for (let j = i + 1; j < sentenceEntities.length; j++) {
-        relationships.push({
-          sourceEntity: sentenceEntities[i].canonicalName,
-          targetEntity: sentenceEntities[j].canonicalName,
-          relationshipType: "RELATED_TO",
-          strength: 3, // Low strength for co-occurrence
-          confidence: 0.3,
-        });
+    for (let i = 0; i < uniqueEntities.length; i++) {
+      for (let j = i + 1; j < uniqueEntities.length; j++) {
+        const left = uniqueEntities[i].canonicalName;
+        const right = uniqueEntities[j].canonicalName;
+        const [sourceEntity, targetEntity] =
+          left.localeCompare(right) <= 0 ? [left, right] : [right, left];
+        const key = `${sourceEntity}::${targetEntity}`;
+        const existing = pairCounts.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          pairCounts.set(key, { sourceEntity, targetEntity, count: 1 });
+        }
       }
     }
+  }
+
+  const sortedPairs = Array.from(pairCounts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, MAX_RELATIONSHIPS);
+
+  for (const pair of sortedPairs) {
+    relationships.push({
+      sourceEntity: pair.sourceEntity,
+      targetEntity: pair.targetEntity,
+      relationshipType: "CO_OCCURS_WITH",
+      description: "Entities frequently co-mentioned in the same text context.",
+      strength: Math.min(10, 2 + pair.count),
+      confidence: Math.min(0.9, 0.5 + pair.count * 0.1),
+    });
   }
 
   return relationships;

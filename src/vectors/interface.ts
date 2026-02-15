@@ -1,5 +1,3 @@
-import type { SearchFilters } from "@/types";
-
 export interface VectorPayload {
   memoryId: string;
   type: string;
@@ -15,6 +13,13 @@ export interface VectorSearchResult {
   memoryId: string;
   score: number;
   payload: VectorPayload;
+}
+
+export interface VectorSearchFilters {
+  type?: string;
+  tags?: string[];
+  minImportance?: number;
+  relatedFiles?: string[];
 }
 
 /**
@@ -37,7 +42,7 @@ export interface VectorStore {
    */
   search(
     vector: number[],
-    filters?: SearchFilters,
+    filters?: VectorSearchFilters,
     limit?: number,
   ): Promise<VectorSearchResult[]>;
 

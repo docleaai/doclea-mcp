@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "description": "Deterministic retrieval-quality fixture for CI golden-query checks.",
+  "defaults": {
+    "includeCodeGraph": false,
+    "includeGraphRAG": true,
+    "tokenBudget": 3200,
+    "template": "compact",
+    "recallK": 5,
+    "minMemoryRecall": 1,
+    "minEntityRecall": 1,
+    "minPrecisionAtK": 0.4
+  },
+  "memories": [
+    {
+      "id": "mem-auth-jwt",
+      "type": "decision",
+      "title": "JWT Token Strategy",
+      "summary": "Use short-lived JWT access tokens with rotating refresh tokens.",
+      "content": "Authentication uses JWT access tokens (15 minutes) and refresh token rotation with replay detection. AuthService verifies issuer, audience, and token signature before request handling.",
+      "importance": 0.95,
+      "tags": ["auth", "jwt", "security"],
+      "relatedFiles": ["src/auth/service.ts", "src/auth/token.ts"],
+      "experts": ["auth-team"]
+    },
+    {
+      "id": "mem-payment-retry",
+      "type": "solution",
+      "title": "Payment Retry Idempotency",
+      "summary": "Prevent duplicate charges using idempotency keys and persistent retry state.",
+      "content": "PaymentService stores idempotency keys and retry state in the payments table. Retries are exponential and guarded by duplicate-transaction checks to avoid double charging.",
+      "importance": 0.92,
+      "tags": ["payments", "retries", "idempotency"],
+      "relatedFiles": ["src/payments/service.ts", "src/payments/retry.ts"],
+      "experts": ["payments-team"]
+    },
+    {
+      "id": "mem-cache-invalidation",
+      "type": "architecture",
+      "title": "Cache Invalidation on Profile Updates",
+      "summary": "Invalidate user profile cache entries after writes and publish an invalidation event.",
+      "content": "CacheManager invalidates profile and session cache keys when UserProfile updates are committed. Services subscribe to invalidation events to avoid stale reads.",
+      "importance": 0.9,
+      "tags": ["cache", "invalidation", "profiles"],
+      "relatedFiles": ["src/cache/manager.ts", "src/profile/service.ts"],
+      "experts": ["platform-team"]
+    }
+  ],
+  "graph": {
+    "entities": [
+      {
+        "key": "auth-service",
+        "canonicalName": "AuthService",
+        "entityType": "Service",
+        "description": "Service responsible for request authentication and token verification.",
+        "mentionCount": 14,
+        "extractionConfidence": 0.98
+      },
+      {
+        "key": "jwt-token",
+        "canonicalName": "JwtToken",
+        "entityType": "Concept",
+        "description": "JWT access token and refresh-token rotation model.",
+        "mentionCount": 11,
+        "extractionConfidence": 0.95
+      },
+      {
+        "key": "payment-service",
+        "canonicalName": "PaymentService",
+        "entityType": "Service",
+        "description": "Executes payment flows and handles retry/idempotency safeguards.",
+        "mentionCount": 13,
+        "extractionConfidence": 0.97
+      },
+      {
+        "key": "idempotency-key",
+        "canonicalName": "IdempotencyKey",
+        "entityType": "Concept",
+        "description": "Request key used to deduplicate payment retries.",
+        "mentionCount": 10,
+        "extractionConfidence": 0.94
+      },
+      {
+        "key": "cache-manager",
+        "canonicalName": "CacheManager",
+        "entityType": "Service",
+        "description": "Manages profile/session cache lifecycles and invalidation events.",
+        "mentionCount": 12,
+        "extractionConfidence": 0.96
+      },
+      {
+        "key": "user-profile",
+        "canonicalName": "UserProfile",
+        "entityType": "Domain",
+        "description": "User profile aggregate and write model.",
+        "mentionCount": 9,
+        "extractionConfidence": 0.93
+      }
+    ],
+    "entityMemories": [
+      {
+        "entityKey": "auth-service",
+        "memoryId": "mem-auth-jwt",
+        "mentionText": "AuthService verifies JWT signatures.",
+        "confidence": 0.96
+      },
+      {
+        "entityKey": "jwt-token",
+        "memoryId": "mem-auth-jwt",
+        "mentionText": "JWT access token strategy.",
+        "confidence": 0.95
+      },
+      {
+        "entityKey": "payment-service",
+        "memoryId": "mem-payment-retry",
+        "mentionText": "PaymentService retry logic and idempotency checks.",
+        "confidence": 0.97
+      },
+      {
+        "entityKey": "idempotency-key",
+        "memoryId": "mem-payment-retry",
+        "mentionText": "Idempotency key prevents duplicate charges.",
+        "confidence": 0.95
+      },
+      {
+        "entityKey": "cache-manager",
+        "memoryId": "mem-cache-invalidation",
+        "mentionText": "CacheManager invalidates profile cache after writes.",
+        "confidence": 0.96
+      },
+      {
+        "entityKey": "user-profile",
+        "memoryId": "mem-cache-invalidation",
+        "mentionText": "UserProfile updates trigger cache invalidation.",
+        "confidence": 0.94
+      }
+    ],
+    "relationships": [
+      {
+        "sourceKey": "auth-service",
+        "targetKey": "jwt-token",
+        "relationshipType": "uses",
+        "description": "AuthService validates JwtToken payload and signature.",
+        "strength": 9
+      },
+      {
+        "sourceKey": "payment-service",
+        "targetKey": "idempotency-key",
+        "relationshipType": "depends_on",
+        "description": "Payment retries depend on idempotency keys.",
+        "strength": 8.8
+      },
+      {
+        "sourceKey": "cache-manager",
+        "targetKey": "user-profile",
+        "relationshipType": "invalidates",
+        "description": "CacheManager invalidates UserProfile reads after mutation.",
+        "strength": 8.6
+      }
+    ],
+    "communities": [
+      {
+        "key": "security-auth",
+        "level": 0,
+        "entityKeys": ["auth-service", "jwt-token"],
+        "reportTitle": "Authentication cluster",
+        "reportSummary": "Authentication entities revolve around JWT validation and refresh-token rotation."
+      },
+      {
+        "key": "payments-resilience",
+        "level": 0,
+        "entityKeys": ["payment-service", "idempotency-key"],
+        "reportTitle": "Payments resilience cluster",
+        "reportSummary": "Payment retry behavior is anchored by idempotency deduplication."
+      },
+      {
+        "key": "cache-consistency",
+        "level": 0,
+        "entityKeys": ["cache-manager", "user-profile"],
+        "reportTitle": "Cache consistency cluster",
+        "reportSummary": "Profile updates require immediate cache invalidation to prevent stale reads."
+      }
+    ]
+  },
+  "queries": [
+    {
+      "id": "auth-jwt-strategy",
+      "query": "Why did we choose JWT access tokens in AuthService?",
+      "expectedMemoryIds": ["mem-auth-jwt"],
+      "expectedEntityNames": ["authservice", "jwttoken"]
+    },
+    {
+      "id": "payments-idempotency",
+      "query": "What protects PaymentService from duplicate charge retries?",
+      "expectedMemoryIds": ["mem-payment-retry"],
+      "expectedEntityNames": ["paymentservice", "idempotencykey"]
+    },
+    {
+      "id": "cache-invalidation-profile",
+      "query": "How does CacheManager handle invalidation after UserProfile updates?",
+      "expectedMemoryIds": ["mem-cache-invalidation"],
+      "expectedEntityNames": ["cachemanager", "userprofile"]
+    }
+  ]
+}

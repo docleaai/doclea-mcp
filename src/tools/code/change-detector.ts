@@ -13,8 +13,10 @@ export class ChangeDetector {
    */
   async detectChanges(
     files: Array<{ path: string; content: string }>,
+    options: { detectDeleted?: boolean } = {},
   ): Promise<FileChange[]> {
     const changes: FileChange[] = [];
+    const detectDeleted = options.detectDeleted ?? true;
 
     // Check each current file
     for (const file of files) {
@@ -40,18 +42,20 @@ export class ChangeDetector {
       // Unchanged files are skipped
     }
 
-    // Find deleted files
-    const allStored = await this.getAllStoredPaths();
-    const currentPaths = new Set(files.map((f) => f.path));
+    if (detectDeleted) {
+      // Find deleted files
+      const allStored = await this.getAllStoredPaths();
+      const currentPaths = new Set(files.map((f) => f.path));
 
-    for (const storedPath of allStored) {
-      if (!currentPaths.has(storedPath)) {
-        const stored = await this.getStoredHash(storedPath);
-        changes.push({
-          path: storedPath,
-          type: "deleted",
-          oldHash: stored?.hash,
-        });
+      for (const storedPath of allStored) {
+        if (!currentPaths.has(storedPath)) {
+          const stored = await this.getStoredHash(storedPath);
+          changes.push({
+            path: storedPath,
+            type: "deleted",
+            oldHash: stored?.hash,
+          });
+        }
       }
     }
 

@@ -9,6 +9,29 @@ import { stableHash } from "../utils/json";
 import type { CacheKeyComponents } from "./types";
 
 /**
+ * Normalize query text for cache-keying.
+ *
+ * Goals:
+ * - Treat superficial variants (case, spacing, trailing punctuation) as same
+ * - Preserve semantically meaningful internal punctuation (e.g., C++, foo.bar)
+ */
+export function normalizeCacheQuery(query: string): string {
+  const normalized = query
+    .normalize("NFKC")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const trimmedEdgePunctuation = normalized
+    .replace(/^[\s"'`.,!?;:()[\]{}<>~_-]+|[\s"'`.,!?;:()[\]{}<>~_-]+$/g, "")
+    .replace(/\s+/g, " ");
+
+  return trimmedEdgePunctuation.length > 0
+    ? trimmedEdgePunctuation
+    : normalized;
+}
+
+/**
  * Generate a cache key from context build parameters.
  * Uses stable JSON serialization to ensure deterministic keys.
  *
@@ -54,6 +77,8 @@ export async function buildCacheKeyComponents(
     query: string;
     tokenBudget?: number;
     includeCodeGraph?: boolean;
+    includeGraphRAG?: boolean;
+    includeEvidence?: boolean;
     filters?: {
       type?: string;
       tags?: string[];
@@ -64,9 +89,11 @@ export async function buildCacheKeyComponents(
   scoringConfig?: ScoringConfig,
 ): Promise<CacheKeyComponents> {
   const components: CacheKeyComponents = {
-    query: input.query,
+    query: normalizeCacheQuery(input.query),
     tokenBudget: input.tokenBudget ?? 4000,
     includeCodeGraph: input.includeCodeGraph ?? true,
+    includeGraphRAG: input.includeGraphRAG ?? true,
+    includeEvidence: input.includeEvidence ?? false,
     template: input.template ?? "default",
   };
 

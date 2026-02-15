@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "libsql";
-import type { SearchFilters } from "@/types";
 import type {
   VectorPayload,
+  VectorSearchFilters,
   VectorSearchResult,
   VectorStore,
 } from "./interface";
@@ -155,7 +155,7 @@ export class LibSqlVectorStore implements VectorStore {
 
   async search(
     vector: number[],
-    filters?: SearchFilters,
+    filters?: VectorSearchFilters,
     limit: number = 10,
   ): Promise<VectorSearchResult[]> {
     await this.initialize();

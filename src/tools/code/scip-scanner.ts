@@ -4,8 +4,14 @@
  */
 
 import { createHash } from "node:crypto";
+import { basename, extname } from "node:path";
 import type { CodeGraphStorage } from "@/database/code-graph";
 import type { EmbeddingClient } from "@/embeddings/provider";
+import {
+  DEFAULT_EXCLUDE_PATTERNS,
+  DEFAULT_INCLUDE_PATTERNS,
+  discoverFiles,
+} from "@/utils";
 import type { VectorStore } from "@/vectors/interface";
 import { mapScipToCodeGraph, runScipTypeScript } from "./scip";
 import type { CodeNode, IncrementalScanResult, ScanStats } from "./types";
@@ -63,6 +69,16 @@ export class ScipScanner {
       projectRoot: this.options.projectPath,
       indexPath: scipResult.indexPath,
     });
+    const supplementalNodes = await this.buildSupplementalFileNodes(
+      graph.nodes,
+    );
+    if (supplementalNodes.length > 0) {
+      graph.nodes.push(...supplementalNodes);
+      graph.stats.nodesByType.module += supplementalNodes.length;
+      console.log(
+        `[scip-scanner] Added ${supplementalNodes.length} supplemental module nodes for files without SCIP symbols`,
+      );
+    }
 
     console.log(
       `[scip-scanner] Found ${graph.nodes.length} nodes, ${graph.edges.length} edges`,
@@ -132,20 +148,46 @@ export class ScipScanner {
     );
 
     try {
+      const batch = this.pendingEmbeddings;
+
       // Generate embedding texts
-      const embeddingTexts = this.pendingEmbeddings.map(({ node }) => {
+      const embeddingTexts = batch.map(({ node }) => {
         return [node.name, node.signature || "", node.summary || ""]
           .filter(Boolean)
           .join("\n");
       });
 
-      // Batch embed
-      const vectors = await this.options.embeddings.embedBatch(embeddingTexts);
+      let vectors: number[][] = [];
+      try {
+        vectors = await this.options.embeddings.embedBatch(embeddingTexts);
+      } catch (error) {
+        console.warn(
+          "[scip-scanner] Batch embedding failed, falling back to per-item:",
+          error,
+        );
+        vectors = await Promise.all(
+          embeddingTexts.map(async (text, index) => {
+            try {
+              return await this.options.embeddings.embed(text);
+            } catch (itemError) {
+              const nodeId = batch[index]?.node.id ?? `index_${index}`;
+              console.warn(
+                `[scip-scanner] Failed to embed node ${nodeId}:`,
+                itemError,
+              );
+              return [];
+            }
+          }),
+        );
+      }
 
       // Upsert all vectors
-      for (let i = 0; i < this.pendingEmbeddings.length; i++) {
-        const { node, filePath } = this.pendingEmbeddings[i];
+      for (let i = 0; i < batch.length; i++) {
+        const { node, filePath } = batch[i];
         const vector = vectors[i];
+        if (!vector || vector.length === 0) {
+          continue;
+        }
 
         const payload = {
           memoryId: node.id,
@@ -181,6 +223,56 @@ export class ScipScanner {
       .digest("hex")
       .slice(0, 16);
     return `code_${hash}`;
+  }
+
+  private async buildSupplementalFileNodes(
+    existingNodes: CodeNode[],
+  ): Promise<CodeNode[]> {
+    const include = [
+      ...DEFAULT_INCLUDE_PATTERNS,
+      "**/*.sql",
+      "**/.env",
+      "**/.env.*",
+    ];
+    const exclude = [...DEFAULT_EXCLUDE_PATTERNS].filter(
+      (pattern) =>
+        pattern !== "**/.env" &&
+        pattern !== "**/.env.*" &&
+        pattern !== "**/.envrc",
+    );
+    const discoveredFiles = await discoverFiles({
+      cwd: this.options.projectPath,
+      include,
+      exclude,
+    });
+    const existingFilePaths = new Set(
+      existingNodes.map((node) => node.filePath),
+    );
+    const now = Date.now();
+    const supplementalNodes: CodeNode[] = [];
+
+    for (const filePath of discoveredFiles) {
+      if (existingFilePaths.has(filePath)) {
+        continue;
+      }
+
+      const fileName = basename(filePath);
+      supplementalNodes.push({
+        id: `${filePath}:module:${fileName}`,
+        type: "module",
+        name: fileName,
+        filePath,
+        summary: `File module for ${fileName}`,
+        metadata: {
+          source: "supplemental-file-index",
+          extension: extname(fileName).replace(/^\./, "").toLowerCase(),
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return supplementalNodes;
   }
 }
 

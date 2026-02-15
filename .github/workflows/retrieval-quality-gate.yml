@@ -1,0 +1,34 @@
+name: Retrieval Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  retrieval-quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCLEA_QUALITY_FIXTURE_PATH: "documentation/retrieval/golden-queries.json"
+      DOCLEA_QUALITY_GATE_RECALL_K: "5"
+      DOCLEA_QUALITY_GATE_MIN_MEMORY_RECALL: "1"
+      DOCLEA_QUALITY_GATE_MIN_ENTITY_RECALL: "1"
+      DOCLEA_QUALITY_GATE_MIN_PRECISION_AT_K: "0.4"
+      DOCLEA_QUALITY_GATE_UPDATE_FIXTURE: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Retrieval Quality Gate
+        run: bun run quality:retrieval-gate

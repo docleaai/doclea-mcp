@@ -30,8 +30,17 @@ Context building can be expensive (embeddings, searches, formatting). Caching he
 
 | Tool | Description |
 |------|-------------|
+| [doclea_retrieval_benchmark](./retrieval-benchmark) | Benchmark retrieval latency and route distribution |
 | [doclea_cache_stats](./cache-stats) | Get cache statistics |
 | [doclea_cache_clear](./cache-clear) | Clear cache entries |
+
+### Quality & Trend Gates
+
+| Workflow | Description |
+|---|---|
+| [Retrieval Quality Gate](./retrieval-quality-gate) | Golden-query recall/precision gate for relevance regressions |
+| [Retrieval Benchmark History](./retrieval-history) | Persist and compare benchmark runs by commit/time |
+| [Retrieval Value Report](./retrieval-value-report) | MCP vs no-MCP comparison report for stakeholder storytelling |
 
 ## A/B Testing
 
@@ -141,6 +150,43 @@ Configure experiments in your Doclea config:
 ```
 
 Returns hit rate, entry count, and eviction stats.
+
+### Benchmark Retrieval Performance
+
+```json
+// doclea_retrieval_benchmark
+{
+  "runsPerQuery": 3,
+  "warmupRuns": 1,
+  "includeCodeGraph": true,
+  "includeGraphRAG": true,
+  "compareAgainstMemoryOnly": true
+}
+```
+
+Returns p50/p95/p99 latency, per-stage timings (`rag`/`kag`/`graphrag`/`rerank`/`format`), route split (`memory`/`code`/`hybrid`), cache hit rate, and optional full-vs-memory-only slowdown ratios.
+Use perf-gate env vars to enforce both overall and stage-level p95 budgets in CI.
+
+### Run Retrieval Quality Gate
+
+```bash
+bun run quality:retrieval-gate
+```
+
+Evaluates retrieval relevance against versioned golden queries and fails on recall/precision regressions.
+
+### Inspect Benchmark History
+
+```bash
+bun run perf:retrieval-history
+bun run perf:retrieval-history:compare
+```
+
+### Generate MCP Value Report
+
+```bash
+bun run value:retrieval-report
+```
 
 ### Clear Cache
 

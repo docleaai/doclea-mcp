@@ -17,6 +17,20 @@ import type {
   RelationshipSource,
 } from "../types";
 
+type CreateEntityInput = Pick<Entity, "canonicalName" | "entityType"> &
+  Partial<Omit<Entity, "id" | "canonicalName" | "entityType" | "metadata">> & {
+    metadata?: Record<string, unknown>;
+  };
+
+type CreateCommunityReportInput = Pick<
+  CommunityReport,
+  "communityId" | "title" | "summary" | "fullContent"
+> &
+  Partial<Pick<CommunityReport, "id">> &
+  Partial<
+    Omit<CommunityReport, "communityId" | "title" | "summary" | "fullContent">
+  >;
+
 export class GraphRAGStorage {
   constructor(private db: Database) {}
 
@@ -24,11 +38,7 @@ export class GraphRAGStorage {
   // Entity Operations
   // ============================================================================
 
-  createEntity(
-    entity: Omit<Entity, "id" | "metadata"> & {
-      metadata?: Record<string, unknown>;
-    },
-  ): Entity {
+  createEntity(entity: CreateEntityInput): Entity {
     const id = nanoid();
     const now = Math.floor(Date.now() / 1000);
 
@@ -285,7 +295,6 @@ export class GraphRAGStorage {
           "SELECT * FROM graphrag_relationships WHERE target_entity_id = ?";
         params = [entityId];
         break;
-      case "both":
       default:
         query =
           "SELECT * FROM graphrag_relationships WHERE source_entity_id = ? OR target_entity_id = ?";
@@ -487,8 +496,8 @@ export class GraphRAGStorage {
   // Community Reports
   // ============================================================================
 
-  createReport(report: Omit<CommunityReport, "id">): CommunityReport {
-    const id = nanoid();
+  createReport(report: CreateCommunityReportInput): CommunityReport {
+    const id = report.id ?? nanoid();
     const now = Math.floor(Date.now() / 1000);
 
     this.db

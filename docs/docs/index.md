@@ -139,7 +139,7 @@ Doclea auto-detects your environment. Start with zero-config, upgrade when neede
 
 - [Quick Start](./quick-start) - Get productive in 3 minutes
 - [Memory Management](./guides/memory-management) - Store and search effectively
-- [API Reference](./api/overview) - All 15 MCP tools documented
+- [API Reference](./api/overview) - All 62 MCP tools documented
 - [Troubleshooting](./troubleshooting) - Common issues and fixes
 
 ---

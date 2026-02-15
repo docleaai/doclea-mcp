@@ -3,9 +3,9 @@ import { existsSync, mkdirSync } from "node:fs";
 import { platform } from "node:os";
 import { dirname } from "node:path";
 import * as sqliteVec from "sqlite-vec";
-import type { SearchFilters } from "@/types";
 import type {
   VectorPayload,
+  VectorSearchFilters,
   VectorSearchResult,
   VectorStore,
 } from "./interface";
@@ -174,7 +174,7 @@ export class SqliteVecStore implements VectorStore {
 
   async search(
     vector: number[],
-    filters?: SearchFilters,
+    filters?: VectorSearchFilters,
     limit: number = 10,
   ): Promise<VectorSearchResult[]> {
     await this.initialize();

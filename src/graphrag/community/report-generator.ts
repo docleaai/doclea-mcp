@@ -6,6 +6,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { nanoid } from "nanoid";
 import { truncateToTokens } from "@/utils/tokens";
 import {
   COMMUNITY_REPORT_SYSTEM,
@@ -49,18 +50,30 @@ export interface GenerationResult {
   truncated: boolean;
 }
 
+export interface ReportEmbeddingContext {
+  reportId: string;
+  communityId: string;
+  title: string;
+  summary: string;
+}
+
+type ReportEmbedder = (
+  text: string,
+  context: ReportEmbeddingContext,
+) => Promise<string>;
+
 /**
  * Generates community reports using LLM
  */
 export class ReportGenerator {
   private client: Anthropic | null = null;
   private config: ReportConfig;
-  private embedder?: (text: string) => Promise<string>;
+  private embedder?: ReportEmbedder;
 
   constructor(
     private storage: GraphRAGStorage,
     config?: Partial<ReportConfig>,
-    embedder?: (text: string) => Promise<string>,
+    embedder?: ReportEmbedder,
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
 
@@ -117,11 +130,18 @@ export class ReportGenerator {
       reportData = this.generateFallback(entities, relationships);
     }
 
+    const reportId = nanoid();
+
     // Embed the summary if embedder is available
     let embeddingId: string | undefined;
     if (this.embedder) {
       try {
-        embeddingId = await this.embedder(reportData.summary);
+        embeddingId = await this.embedder(reportData.summary, {
+          reportId,
+          communityId: community.id,
+          title: reportData.title,
+          summary: reportData.summary,
+        });
       } catch (error) {
         console.warn("[doclea] Failed to embed community report:", error);
       }
@@ -129,6 +149,7 @@ export class ReportGenerator {
 
     // Store report
     const report = this.storage.createReport({
+      id: reportId,
       communityId: community.id,
       title: reportData.title,
       summary: reportData.summary,

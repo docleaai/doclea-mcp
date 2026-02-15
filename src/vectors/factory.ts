@@ -17,6 +17,7 @@ export function createVectorStore(
       url: config.url,
       apiKey: config.apiKey,
       collectionName: config.collectionName ?? "doclea_vectors",
+      vectorSize: config.vectorSize,
     });
   }
 

@@ -4,6 +4,7 @@
 export { createVectorStore } from "./factory";
 export type {
   VectorPayload,
+  VectorSearchFilters,
   VectorSearchResult,
   VectorStore,
 } from "./interface";

@@ -14,7 +14,10 @@ import type {
   ExtractionResult,
 } from "../types";
 import { ExtractedEntitySchema, ExtractedRelationshipSchema } from "../types";
-import { extractEntitiesFallback } from "./fallback";
+import {
+  extractEntitiesFallback,
+  extractRelationshipsFallback,
+} from "./fallback";
 import {
   createEntityExtractionUserPrompt,
   ENTITY_EXTRACTION_SYSTEM,
@@ -82,9 +85,10 @@ export class EntityExtractor {
    */
   async extract(content: string): Promise<ExtractionResult> {
     if (!this.client) {
+      const entities = extractEntitiesFallback(content);
       return {
-        entities: extractEntitiesFallback(content),
-        relationships: [],
+        entities,
+        relationships: extractRelationshipsFallback(entities, content),
         usedFallback: true,
       };
     }
@@ -114,9 +118,13 @@ export class EntityExtractor {
 
       // Validate and filter entities
       const entities = this.validateEntities(parsed.entities || []);
-      const relationships = this.validateRelationships(
+      const validatedRelationships = this.validateRelationships(
         parsed.relationships || [],
       );
+      const relationships =
+        validatedRelationships.length > 0
+          ? validatedRelationships
+          : extractRelationshipsFallback(entities, truncatedContent);
 
       return {
         entities,
@@ -127,9 +135,10 @@ export class EntityExtractor {
       console.warn("[doclea] Entity extraction failed, using fallback:", error);
 
       if (this.useFallbackOnError) {
+        const entities = extractEntitiesFallback(content);
         return {
-          entities: extractEntitiesFallback(content),
-          relationships: [],
+          entities,
+          relationships: extractRelationshipsFallback(entities, content),
           usedFallback: true,
         };
       }
@@ -191,13 +200,24 @@ export class EntityExtractor {
 
     for (const raw of rawEntities) {
       try {
+        const input = raw as Record<string, unknown>;
+        const rawEntityType =
+          input.entity_type ?? input.entityType ?? input.type ?? "OTHER";
+        const normalizedEntityType =
+          typeof rawEntityType === "string"
+            ? rawEntityType.trim().toUpperCase()
+            : "OTHER";
         // Map from snake_case to camelCase
         const mapped = {
-          canonicalName: (raw as any).canonical_name,
-          entityType: (raw as any).entity_type,
-          description: (raw as any).description,
-          confidence: (raw as any).confidence,
-          mentionText: (raw as any).mention_text,
+          canonicalName:
+            input.canonical_name ?? input.canonicalName ?? input.name,
+          entityType: normalizedEntityType,
+          description: input.description,
+          confidence:
+            typeof input.confidence === "number"
+              ? input.confidence
+              : Number(input.confidence ?? 0),
+          mentionText: input.mention_text ?? input.mentionText ?? input.mention,
         };
 
         const result = ExtractedEntitySchema.safeParse(mapped);
@@ -222,14 +242,38 @@ export class EntityExtractor {
 
     for (const raw of rawRelationships) {
       try {
+        const input = raw as Record<string, unknown>;
+        const relationshipType = (
+          input.relationship_type ??
+          input.relationshipType ??
+          input.type ??
+          "RELATED_TO"
+        )
+          .toString()
+          .trim()
+          .toUpperCase();
         // Map from snake_case to camelCase
         const mapped = {
-          sourceEntity: (raw as any).source_entity,
-          targetEntity: (raw as any).target_entity,
-          relationshipType: (raw as any).relationship_type,
-          description: (raw as any).description,
-          strength: (raw as any).strength,
-          confidence: (raw as any).confidence,
+          sourceEntity:
+            input.source_entity ??
+            input.sourceEntity ??
+            input.source ??
+            input.from,
+          targetEntity:
+            input.target_entity ??
+            input.targetEntity ??
+            input.target ??
+            input.to,
+          relationshipType,
+          description: input.description,
+          strength:
+            typeof input.strength === "number"
+              ? input.strength
+              : Number(input.strength ?? 0),
+          confidence:
+            typeof input.confidence === "number"
+              ? input.confidence
+              : Number(input.confidence ?? 0),
         };
 
         const result = ExtractedRelationshipSchema.safeParse(mapped);

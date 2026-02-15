@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import type { SearchFilters } from "@/types";
 import type {
   VectorPayload,
+  VectorSearchFilters,
   VectorSearchResult,
   VectorStore,
 } from "./interface";
@@ -9,17 +10,21 @@ import type {
 // Re-export types from interface for backwards compatibility
 export type { VectorPayload, VectorSearchResult } from "./interface";
 
-const VECTOR_SIZE = 768; // nomic-embed-text-v1.5 dimension
+const DEFAULT_VECTOR_SIZE = 768;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface QdrantConfig {
   url: string;
   apiKey?: string;
   collectionName: string;
+  vectorSize?: number;
 }
 
 export class QdrantVectorStore implements VectorStore {
   private client: QdrantClient;
   private readonly collectionName: string;
+  private readonly vectorSize: number;
 
   constructor(config: QdrantConfig) {
     this.client = new QdrantClient({
@@ -27,6 +32,7 @@ export class QdrantVectorStore implements VectorStore {
       apiKey: config.apiKey,
     });
     this.collectionName = config.collectionName;
+    this.vectorSize = config.vectorSize ?? DEFAULT_VECTOR_SIZE;
   }
 
   async initialize(): Promise<void> {
@@ -35,32 +41,100 @@ export class QdrantVectorStore implements VectorStore {
       (c) => c.name === this.collectionName,
     );
 
-    if (!exists) {
-      await this.client.createCollection(this.collectionName, {
-        vectors: {
-          size: VECTOR_SIZE,
-          distance: "Cosine",
-        },
-        optimizers_config: {
-          default_segment_number: 2,
-        },
-        replication_factor: 1,
-      });
-
-      // Create payload indexes for filtering
-      await this.client.createPayloadIndex(this.collectionName, {
-        field_name: "type",
-        field_schema: "keyword",
-      });
-      await this.client.createPayloadIndex(this.collectionName, {
-        field_name: "tags",
-        field_schema: "keyword",
-      });
-      await this.client.createPayloadIndex(this.collectionName, {
-        field_name: "importance",
-        field_schema: "float",
-      });
+    if (exists) {
+      const collectionInfo = await this.client.getCollection(
+        this.collectionName,
+      );
+      const existingVectorSize =
+        this.extractCollectionVectorSize(collectionInfo);
+      if (
+        existingVectorSize !== null &&
+        existingVectorSize !== this.vectorSize
+      ) {
+        throw new Error(
+          `Qdrant collection "${this.collectionName}" uses vector size ${existingVectorSize}, but config requires ${this.vectorSize}`,
+        );
+      }
+      return;
     }
+
+    await this.client.createCollection(this.collectionName, {
+      vectors: {
+        size: this.vectorSize,
+        distance: "Cosine",
+      },
+      optimizers_config: {
+        default_segment_number: 2,
+      },
+      replication_factor: 1,
+    });
+
+    // Create payload indexes for filtering
+    await this.client.createPayloadIndex(this.collectionName, {
+      field_name: "type",
+      field_schema: "keyword",
+    });
+    await this.client.createPayloadIndex(this.collectionName, {
+      field_name: "tags",
+      field_schema: "keyword",
+    });
+    await this.client.createPayloadIndex(this.collectionName, {
+      field_name: "importance",
+      field_schema: "float",
+    });
+  }
+
+  private extractCollectionVectorSize(collectionInfo: unknown): number | null {
+    const vectors = (
+      collectionInfo as {
+        config?: { params?: { vectors?: unknown } };
+      }
+    ).config?.params?.vectors;
+    if (typeof vectors !== "object" || vectors === null) {
+      return null;
+    }
+
+    if ("size" in vectors && typeof vectors.size === "number") {
+      return vectors.size;
+    }
+
+    for (const value of Object.values(vectors)) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "size" in value &&
+        typeof value.size === "number"
+      ) {
+        return value.size;
+      }
+    }
+
+    return null;
+  }
+
+  private validateVectorSize(vector: number[]): void {
+    if (vector.length !== this.vectorSize) {
+      throw new Error(
+        `Vector dimension mismatch: expected ${this.vectorSize}, got ${vector.length}`,
+      );
+    }
+  }
+
+  private toPointId(id: string): string | number {
+    if (/^\d+$/.test(id)) {
+      return Number.parseInt(id, 10);
+    }
+    if (UUID_REGEX.test(id)) {
+      return id;
+    }
+
+    // Qdrant v1.12+ accepts integer/UUID IDs; map legacy IDs (e.g. vec_*)
+    // to stable UUIDs so existing data can be updated/deleted consistently.
+    const hex = createHash("sha256").update(id).digest("hex");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(
+      16,
+      20,
+    )}-${hex.slice(20, 32)}`;
   }
 
   async upsert(
@@ -68,11 +142,13 @@ export class QdrantVectorStore implements VectorStore {
     vector: number[],
     payload: VectorPayload,
   ): Promise<string> {
+    this.validateVectorSize(vector);
+    const pointId = this.toPointId(id);
     await this.client.upsert(this.collectionName, {
       wait: true,
       points: [
         {
-          id,
+          id: pointId,
           vector,
           payload,
         },
@@ -83,9 +159,10 @@ export class QdrantVectorStore implements VectorStore {
 
   async search(
     vector: number[],
-    filters?: SearchFilters,
+    filters?: VectorSearchFilters,
     limit: number = 10,
   ): Promise<VectorSearchResult[]> {
+    this.validateVectorSize(vector);
     const filter = this.buildFilter(filters);
 
     const results = await this.client.search(this.collectionName, {
@@ -96,7 +173,7 @@ export class QdrantVectorStore implements VectorStore {
     });
 
     return results.map((result) => ({
-      id: result.id as string,
+      id: String(result.id),
       memoryId: (result.payload as VectorPayload).memoryId,
       score: result.score,
       payload: result.payload as VectorPayload,
@@ -105,9 +182,10 @@ export class QdrantVectorStore implements VectorStore {
 
   async delete(id: string): Promise<boolean> {
     try {
+      const pointId = this.toPointId(id);
       await this.client.delete(this.collectionName, {
         wait: true,
-        points: [id],
+        points: [pointId],
       });
       return true;
     } catch {
@@ -135,7 +213,7 @@ export class QdrantVectorStore implements VectorStore {
   }
 
   private buildFilter(
-    filters?: SearchFilters,
+    filters?: VectorSearchFilters,
   ): Array<Record<string, unknown>> | undefined {
     if (!filters) return undefined;
 

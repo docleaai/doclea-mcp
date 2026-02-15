@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createVectorStore } from "@/vectors";
 import { type ExperimentManager, getExperimentManager } from "./ab-testing";
 import { getContextCache } from "./caching";
-import { getProjectPath, loadConfig } from "./config";
+import { getProjectPath, loadConfigWithAutoDetect } from "./config";
 import { TagTaxonomyStorage } from "./database/tag-taxonomy";
 import {
   CachedEmbeddingClient,
@@ -34,7 +34,10 @@ import {
   summarizeCode,
   updateNodeSummary,
 } from "./tools/code";
-import { buildContext } from "./tools/context";
+import {
+  benchmarkContextRetrieval,
+  buildContextWithCache,
+} from "./tools/context";
 import {
   bulkReviewCrossLayer,
   getCodeForMemory,
@@ -89,8 +92,8 @@ import {
 } from "./tools/relation-detection";
 
 // Initialize services
-const config = loadConfig();
 const projectPath = getProjectPath();
+const config = await loadConfigWithAutoDetect(projectPath);
 
 // Create storage backend from config
 const storage: IStorageBackend = createStorageBackend(
@@ -1135,7 +1138,7 @@ server.registerTool(
   {
     title: "Build Context",
     description:
-      "Build formatted context from RAG (semantic search) and KAG (code relationships) within a token budget. Returns markdown-formatted context ready for LLM consumption with relevant memories and code graph relationships.",
+      "Build formatted context from RAG (semantic search), KAG (code relationships), and GraphRAG (entity/community graph) within a token budget. Returns markdown-formatted context ready for LLM consumption.",
     inputSchema: {
       query: z.string().describe("Search query to find relevant context"),
       tokenBudget: z
@@ -1148,6 +1151,10 @@ server.registerTool(
         .boolean()
         .default(true)
         .describe("Include code relationships from KAG"),
+      includeGraphRAG: z
+        .boolean()
+        .default(true)
+        .describe("Include GraphRAG entity and community relationships"),
       filters: z
         .object({
           type: z
@@ -1162,30 +1169,51 @@ server.registerTool(
         .enum(["default", "compact", "detailed"])
         .default("default")
         .describe("Output format template"),
+      includeEvidence: z
+        .boolean()
+        .default(false)
+        .describe(
+          "Include section-level evidence explaining why each chunk was selected",
+        ),
     },
   },
   async (args) => {
-    const result = await buildContext(
+    const result = await buildContextWithCache(
       {
         query: args.query,
         tokenBudget: args.tokenBudget ?? 4000,
         includeCodeGraph: args.includeCodeGraph ?? true,
+        includeGraphRAG: args.includeGraphRAG ?? true,
         filters: args.filters,
         template: args.template ?? "default",
+        includeEvidence: args.includeEvidence ?? false,
       },
       storage,
       vectors,
       embeddings,
+      config.cache,
+      config.scoring,
     );
+
+    const content = [
+      { type: "text" as const, text: result.context },
+      { type: "text" as const, text: "\n\n---\n\n" },
+      {
+        type: "text" as const,
+        text: `**Metadata**: ${JSON.stringify(result.metadata, null, 2)}`,
+      },
+    ];
+
+    if (args.includeEvidence && result.evidence) {
+      content.push({ type: "text" as const, text: "\n\n**Evidence**:\n" });
+      content.push({
+        type: "text" as const,
+        text: JSON.stringify(result.evidence, null, 2),
+      });
+    }
+
     return {
-      content: [
-        { type: "text", text: result.context },
-        { type: "text", text: "\n\n---\n\n" },
-        {
-          type: "text",
-          text: `**Metadata**: ${JSON.stringify(result.metadata, null, 2)}`,
-        },
-      ],
+      content,
     };
   },
 );
@@ -2488,6 +2516,95 @@ server.registerTool(
 // ============================================
 // Cache & A/B Testing Management Tools
 // ============================================
+
+server.registerTool(
+  "doclea_retrieval_benchmark",
+  {
+    title: "Benchmark Retrieval",
+    description:
+      "Benchmark context retrieval performance across representative queries. Returns latency percentiles, per-stage timings, route distribution, and cache hit rate.",
+    inputSchema: {
+      queries: z
+        .array(z.string())
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+          "Queries to benchmark. Uses a built-in representative set when omitted.",
+        ),
+      runsPerQuery: z
+        .number()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Measured runs per query (default: 3)"),
+      warmupRuns: z
+        .number()
+        .min(0)
+        .max(10)
+        .optional()
+        .describe("Warm-up runs per query before timing (default: 1)"),
+      tokenBudget: z
+        .number()
+        .min(100)
+        .max(100000)
+        .optional()
+        .describe("Token budget used during context building (default: 4000)"),
+      includeCodeGraph: z
+        .boolean()
+        .optional()
+        .describe(
+          "Include code-graph retrieval during benchmark (default: true)",
+        ),
+      includeGraphRAG: z
+        .boolean()
+        .optional()
+        .describe(
+          "Include GraphRAG retrieval during benchmark (default: true)",
+        ),
+      template: z
+        .enum(["default", "compact", "detailed"])
+        .optional()
+        .describe("Context output format template (default: compact)"),
+      clearCacheFirst: z
+        .boolean()
+        .optional()
+        .describe(
+          "Clear context cache before benchmark starts (default: true)",
+        ),
+      compareAgainstMemoryOnly: z
+        .boolean()
+        .optional()
+        .describe(
+          "Also run memory-only baseline and include overhead ratios (default: false)",
+        ),
+    },
+  },
+  async (args) => {
+    const result = await benchmarkContextRetrieval(
+      {
+        queries: args.queries,
+        runsPerQuery: args.runsPerQuery,
+        warmupRuns: args.warmupRuns,
+        tokenBudget: args.tokenBudget,
+        includeCodeGraph: args.includeCodeGraph,
+        includeGraphRAG: args.includeGraphRAG,
+        template: args.template,
+        clearCacheFirst: args.clearCacheFirst,
+        compareAgainstMemoryOnly: args.compareAgainstMemoryOnly,
+      },
+      storage,
+      vectors,
+      embeddings,
+      config.cache,
+      config.scoring,
+    );
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
 
 server.registerTool(
   "doclea_cache_stats",

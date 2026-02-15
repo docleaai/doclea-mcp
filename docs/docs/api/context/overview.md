@@ -7,7 +7,7 @@ keywords: [context, RAG, KAG, semantic, code, assembly]
 
 # Context Building
 
-Assemble formatted context from both semantic search (RAG) and code relationships (KAG) within token budgets.
+Assemble formatted context from semantic memory search (RAG), code relationships (KAG), and GraphRAG entity/community insights within token budgets, with optional selection evidence for auditability.
 
 ## Why Context Building?
 
@@ -15,6 +15,7 @@ LLMs need relevant context to answer questions effectively. Doclea combines:
 
 - **RAG** - Semantic search over memories (decisions, patterns, solutions)
 - **KAG** - Code graph relationships (call graphs, implementations)
+- **GraphRAG** - Entity and community knowledge graph context
 
 The context builder assembles these into token-optimized markdown.
 
@@ -22,7 +23,7 @@ The context builder assembles these into token-optimized markdown.
 
 | Tool | Description |
 |------|-------------|
-| [doclea_context](./build-context) | Build combined RAG+KAG context |
+| [doclea_context](./build-context) | Build combined RAG+KAG+GraphRAG context |
 
 ## How It Works
 
@@ -33,22 +34,22 @@ The context builder assembles these into token-optimized markdown.
                       │
         ┌─────────────┴─────────────┐
         ▼                           ▼
-┌───────────────┐           ┌───────────────┐
-│     RAG       │           │     KAG       │
-│ (70% budget)  │           │ (30% budget)  │
-└───────────────┘           └───────────────┘
-        │                           │
-        ▼                           ▼
-┌───────────────┐           ┌───────────────┐
-│ Memory Search │           │ Code Graph    │
-│ - Embeddings  │           │ - Call Graph  │
-│ - Scoring     │           │ - Implements  │
-└───────────────┘           └───────────────┘
-        │                           │
-        └─────────────┬─────────────┘
+┌───────────────┐   ┌───────────────┐   ┌─────────────────┐
+│     RAG       │   │     KAG       │   │    GraphRAG     │
+│ (adaptive %)  │   │ (adaptive %)  │   │   (adaptive %)  │
+└───────────────┘   └───────────────┘   └─────────────────┘
+        │                   │                    │
+        ▼                   ▼                    ▼
+┌───────────────┐   ┌───────────────┐   ┌─────────────────┐
+│ Memory Search │   │ Code Graph    │   │ Entity/Community│
+│ - Embeddings  │   │ - Call Graph  │   │ - Relationships │
+│ - Scoring     │   │ - Implements  │   │ - Reports       │
+└───────────────┘   └───────────────┘   └─────────────────┘
+        │                   │                    │
+        └───────────────────┴────────────┬───────┘
                       ▼
         ┌─────────────────────────┐
-        │   Rank by Relevance     │
+        │ Hybrid Fusion Reranker  │
         │   Fit Within Budget     │
         └─────────────┬───────────┘
                       ▼
@@ -59,12 +60,13 @@ The context builder assembles these into token-optimized markdown.
 
 ## Token Allocation
 
-Default allocation:
+Adaptive allocation by detected query intent:
 
 | Source | Percentage | Purpose |
 |--------|------------|---------|
-| RAG | 70% | Semantic memory search |
-| KAG | 30% | Code relationships |
+| RAG | 75% (memory) / 55% (hybrid) / 20% (code) | Semantic memory search |
+| KAG | 10% (memory) / 30% (hybrid) / 65% (code) | Code relationships |
+| GraphRAG | 15% (all routes) | Entity/community graph insights |
 | Overhead | ~200 tokens | Headers, formatting |
 
 ## Output Templates
@@ -97,6 +99,17 @@ First line only for each section - minimizes tokens.
 ### detailed
 
 Full content with all available metadata.
+
+## Evidence Mode
+
+Set `includeEvidence: true` in `doclea_context` to return a structured list of why each section was selected, including:
+
+- similarity/relevance signal
+- matched query terms
+- provenance metadata (memory IDs/types or code node details)
+- whether a candidate section was excluded by token budget
+
+Evidence entries also include reranker diagnostics (`rerankerScore`, semantic/source-balance/novelty components) so you can tune retrieval behavior.
 
 ## Integration with Budget
 

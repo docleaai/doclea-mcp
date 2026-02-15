@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "description": "Thorough app-specific MCP value benchmark queries for docs + code intents.",
+  "queries": [
+    {
+      "id": "q-config-stack",
+      "query": "How do I configure Doclea storage backend and vector provider?",
+      "expectedMemoryIds": ["mem_lQt2tEycxgpDqYB5"],
+      "expectedEntityNames": ["config", "storage", "vector"]
+    },
+    {
+      "id": "q-zero-config",
+      "query": "How does zero config setup work and where is config generated?",
+      "expectedMemoryIds": ["mem_-dnWvMm5QxOu40YM"],
+      "expectedEntityNames": ["zero", "config", "generated"]
+    },
+    {
+      "id": "q-implementation-plan",
+      "query": "What is the implementation plan for Doclea MCP?",
+      "expectedMemoryIds": ["mem_eCOJOjCOCvai7nCO"],
+      "expectedEntityNames": ["doclea", "implementation"]
+    },
+    {
+      "id": "q-quality-and-history",
+      "query": "Explain retrieval quality gate and benchmark history workflows",
+      "expectedMemoryIds": ["mem_Jze931OEbl8z8jbU", "mem_QvFd7emguoUBLPve"],
+      "expectedEntityNames": ["quality", "workflow", "history"]
+    },
+    {
+      "id": "q-vector-search-arch",
+      "query": "What does the vector search architecture look like?",
+      "expectedMemoryIds": ["mem_YI8fqasguDiUwc3J"],
+      "expectedEntityNames": ["vector", "search"]
+    },
+    {
+      "id": "q-retrieval-strategy",
+      "query": "What retrieval strategies are recommended for large codebases?",
+      "expectedMemoryIds": ["mem_XB5EGjU5w091B1Uf"],
+      "expectedEntityNames": ["retrieval", "strategy", "codebase"]
+    },
+    {
+      "id": "q-storage-architecture",
+      "query": "How is data stored and what are the storage components?",
+      "expectedMemoryIds": ["mem_UHwGdPss_k5VT3-H"],
+      "expectedEntityNames": ["storage", "data"]
+    },
+    {
+      "id": "q-api-overview",
+      "query": "Summarize the API tool categories and what each group does",
+      "expectedMemoryIds": ["mem_cL2dUthS4hbE0iVN"],
+      "expectedEntityNames": ["api", "tools"]
+    },
+    {
+      "id": "q-troubleshooting",
+      "query": "What are the key troubleshooting steps when Doclea setup fails?",
+      "expectedMemoryIds": ["mem_3LWXg8abvzbkjsOv"],
+      "expectedEntityNames": ["troubleshooting", "setup"]
+    },
+    {
+      "id": "q-faq",
+      "query": "What are the most important frequently asked questions for Doclea users?",
+      "expectedMemoryIds": ["mem_QRV_WR88UTW2uFX7"],
+      "expectedEntityNames": ["frequently", "questions", "doclea"]
+    },
+    {
+      "id": "q-code-detect-project-stack",
+      "query": "How does detectProjectStack() determine project technologies?",
+      "expectedEntityNames": ["project", "detection"]
+    },
+    {
+      "id": "q-code-analyze-docker",
+      "query": "What does analyzeDockerConfig() inspect?",
+      "expectedEntityNames": ["docker", "config"]
+    }
+  ]
+}

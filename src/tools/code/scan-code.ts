@@ -175,6 +175,7 @@ export async function scanCode(
     const batchFiles = files.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(files.length / batchSize);
+    const detectDeletedInThisBatch = totalBatches === 1;
 
     console.log(
       `[scan] Processing batch ${batchNum}/${totalBatches} (${batchFiles.length} files)`,
@@ -196,7 +197,9 @@ export async function scanCode(
     let batchResult: IncrementalScanResult;
     try {
       batchResult = input.incremental
-        ? await scanner.scanIncremental(fileData)
+        ? await scanner.scanIncremental(fileData, {
+            detectDeleted: detectDeletedInThisBatch,
+          })
         : await fullScan(scanner, fileData);
     } catch (error) {
       console.error(`[scan] Batch ${batchNum} failed:`, error);

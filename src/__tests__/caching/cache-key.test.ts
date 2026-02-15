@@ -3,6 +3,7 @@ import {
   buildCacheKeyComponents,
   generateCacheKey,
   hashScoringConfig,
+  normalizeCacheQuery,
 } from "../../caching/cache-key";
 import { DEFAULT_SCORING_CONFIG } from "../../scoring/types";
 
@@ -12,6 +13,8 @@ describe("generateCacheKey", () => {
       query: "test query",
       tokenBudget: 4000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     };
 
@@ -27,6 +30,8 @@ describe("generateCacheKey", () => {
       query: "query 1",
       tokenBudget: 4000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     });
 
@@ -34,6 +39,8 @@ describe("generateCacheKey", () => {
       query: "query 2",
       tokenBudget: 4000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     });
 
@@ -45,6 +52,8 @@ describe("generateCacheKey", () => {
       query: "test",
       tokenBudget: 4000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     });
 
@@ -52,6 +61,8 @@ describe("generateCacheKey", () => {
       query: "test",
       tokenBudget: 8000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     });
 
@@ -63,12 +74,16 @@ describe("generateCacheKey", () => {
       query: "test",
       tokenBudget: 4000,
       includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
       template: "default",
     });
 
     // Same properties in different order
     const key2 = await generateCacheKey({
       template: "default",
+      includeGraphRAG: true,
+      includeEvidence: false,
       includeCodeGraph: true,
       tokenBudget: 4000,
       query: "test",
@@ -123,7 +138,35 @@ describe("buildCacheKeyComponents", () => {
     expect(components.query).toBe("test query");
     expect(components.tokenBudget).toBe(4000);
     expect(components.includeCodeGraph).toBe(true);
+    expect(components.includeGraphRAG).toBe(true);
+    expect(components.includeEvidence).toBe(false);
     expect(components.template).toBe("default");
+  });
+
+  it("normalizes cache-key query casing, whitespace, and edge punctuation", async () => {
+    const components = await buildCacheKeyComponents({
+      query: "  WHAT calls ValidateToken??  ",
+    });
+
+    expect(components.query).toBe("what calls validatetoken");
+  });
+
+  it("should include graph mode in key components", async () => {
+    const components = await buildCacheKeyComponents({
+      query: "test query",
+      includeGraphRAG: false,
+    });
+
+    expect(components.includeGraphRAG).toBe(false);
+  });
+
+  it("should include evidence mode in key components", async () => {
+    const components = await buildCacheKeyComponents({
+      query: "test query",
+      includeEvidence: true,
+    });
+
+    expect(components.includeEvidence).toBe(true);
   });
 
   it("should include filters when provided", async () => {
@@ -183,5 +226,107 @@ describe("buildCacheKeyComponents", () => {
     });
 
     expect(components.filters?.tags).toBeUndefined();
+  });
+
+  it("should generate different keys for evidence mode", async () => {
+    const withEvidence = await generateCacheKey({
+      query: "test",
+      tokenBudget: 4000,
+      includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: true,
+      template: "default",
+    });
+    const withoutEvidence = await generateCacheKey({
+      query: "test",
+      tokenBudget: 4000,
+      includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
+      template: "default",
+    });
+
+    expect(withEvidence).not.toBe(withoutEvidence);
+  });
+
+  it("should generate different keys for graph mode", async () => {
+    const withGraph = await generateCacheKey({
+      query: "test",
+      tokenBudget: 4000,
+      includeCodeGraph: true,
+      includeGraphRAG: true,
+      includeEvidence: false,
+      template: "default",
+    });
+    const withoutGraph = await generateCacheKey({
+      query: "test",
+      tokenBudget: 4000,
+      includeCodeGraph: true,
+      includeGraphRAG: false,
+      includeEvidence: false,
+      template: "default",
+    });
+
+    expect(withGraph).not.toBe(withoutGraph);
+  });
+
+  it("should generate identical keys for equivalent query variants", async () => {
+    const key1 = await generateCacheKey(
+      await buildCacheKeyComponents({
+        query: "What calls validateToken?",
+      }),
+    );
+    const key2 = await generateCacheKey(
+      await buildCacheKeyComponents({
+        query: "  what   calls validatetoken  ",
+      }),
+    );
+
+    expect(key1).toBe(key2);
+  });
+
+  it("should preserve meaningful internal punctuation differences", async () => {
+    const key1 = await generateCacheKey(
+      await buildCacheKeyComponents({
+        query: "c++ memory model",
+      }),
+    );
+    const key2 = await generateCacheKey(
+      await buildCacheKeyComponents({
+        query: "c memory model",
+      }),
+    );
+
+    expect(key1).not.toBe(key2);
+  });
+
+  it("collapses representative query variants to improve cache hit potential", async () => {
+    const variants = [
+      "What calls validateToken?",
+      "what calls validatetoken",
+      "  WHAT   calls validateToken?? ",
+      '"what calls validateToken"',
+      "What calls validateToken?!",
+      "what calls validateToken",
+      "What calls validateSession?",
+      "  what calls validateSession  ",
+    ];
+
+    const rawUnique = new Set(variants).size;
+    const normalizedQueries = await Promise.all(
+      variants.map(
+        async (query) => (await buildCacheKeyComponents({ query })).query,
+      ),
+    );
+    const normalizedUnique = new Set(normalizedQueries).size;
+
+    expect(normalizedUnique).toBeLessThan(rawUnique);
+    expect(normalizedUnique).toBe(2);
+  });
+});
+
+describe("normalizeCacheQuery", () => {
+  it("falls back safely when edge-punctuation stripping empties the string", () => {
+    expect(normalizeCacheQuery("???")).toBe("???");
   });
 });

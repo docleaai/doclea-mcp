@@ -2,7 +2,7 @@
  * Tests for GraphRAGStorage class
  */
 
-import { Database } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { beforeEach, describe, expect, test } from "bun:test";
 import { GraphRAGStorage } from "@/graphrag/graph/graphrag-storage";
 import { migration012GraphRAG } from "@/migrations/012_graphrag";
@@ -17,11 +17,12 @@ describe("GraphRAGStorage", () => {
 
     // Create migration database adapter
     const migrationDb = {
-      run: (sql: string, ...params: unknown[]) => db.run(sql, ...params),
+      run: (sql: string, ...params: SQLQueryBindings[]) =>
+        db.query(sql).run(...params),
       exec: (sql: string) => db.exec(sql),
-      query: <T = unknown>(sql: string, ...params: unknown[]) =>
+      query: <T = unknown>(sql: string, ...params: SQLQueryBindings[]) =>
         db.query(sql).all(...params) as T[],
-      get: <T = unknown>(sql: string, ...params: unknown[]) =>
+      get: <T = unknown>(sql: string, ...params: SQLQueryBindings[]) =>
         db.query(sql).get(...params) as T | undefined,
     };
 

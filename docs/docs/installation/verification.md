@@ -73,7 +73,7 @@ Ask your AI assistant:
 List all doclea tools available
 ```
 
-Expected: A list of 57 tools across categories (memory, context, search, git, expertise, etc.)
+Expected: A list of 62 tools across categories (memory, context, search, git, expertise, etc.)
 
 ---
 

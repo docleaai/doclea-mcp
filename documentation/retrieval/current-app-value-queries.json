@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "description": "App-specific value evaluation queries for Doclea MCP using current indexed docs/code.",
+  "queries": [
+    {
+      "id": "q-config-stack",
+      "query": "How do I configure Doclea storage backend and vector provider?",
+      "expectedMemoryIds": ["mem_lQt2tEycxgpDqYB5"]
+    },
+    {
+      "id": "q-zero-config",
+      "query": "How does zero config setup work and where is config generated?",
+      "expectedMemoryIds": ["mem_-dnWvMm5QxOu40YM"]
+    },
+    {
+      "id": "q-implementation-plan",
+      "query": "What is the implementation plan for Doclea MCP?",
+      "expectedMemoryIds": ["mem_eCOJOjCOCvai7nCO"]
+    },
+    {
+      "id": "q-quality-and-history",
+      "query": "Explain retrieval quality gate and benchmark history workflows",
+      "expectedMemoryIds": ["mem_Jze931OEbl8z8jbU", "mem_QvFd7emguoUBLPve"]
+    },
+    {
+      "id": "q-code-detect-project-stack",
+      "query": "How does detectProjectStack() determine project technologies?"
+    },
+    {
+      "id": "q-code-analyze-docker",
+      "query": "What does analyzeDockerConfig() inspect?"
+    },
+    {
+      "id": "q-graphrag-guide",
+      "query": "What are the core GraphRAG concepts in our docs?",
+      "expectedMemoryIds": ["mem_KRjasX4E_kidhsoU"]
+    }
+  ]
+}

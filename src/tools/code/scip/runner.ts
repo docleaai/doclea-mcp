@@ -49,34 +49,44 @@ export async function runScipTypeScript(
     const tsconfigPath = join(options.projectPath, "tsconfig.json");
     const hasTsconfig = existsSync(tsconfigPath);
 
-    const args = [
-      "bunx",
-      "scip-typescript",
+    const baseArgs = [
       "index",
       "--cwd",
       options.projectPath,
       "--output",
       indexPath,
+      ...(!hasTsconfig || options.inferTsconfig ? ["--infer-tsconfig"] : []),
     ];
 
-    // If no tsconfig, let SCIP infer it
-    if (!hasTsconfig || options.inferTsconfig) {
-      args.push("--infer-tsconfig");
+    const commandCandidates = [
+      ["bunx", "@sourcegraph/scip-typescript", ...baseArgs],
+      ["bunx", "scip-typescript", ...baseArgs],
+      ["npx", "-y", "@sourcegraph/scip-typescript", ...baseArgs],
+    ];
+
+    let lastError = "SCIP indexer failed";
+    let ranSuccessfully = false;
+
+    for (const args of commandCandidates) {
+      try {
+        console.log(`[scip] Running: ${args.join(" ")}`);
+        execSync(args.join(" "), {
+          cwd: options.projectPath,
+          stdio: "pipe",
+          timeout: 120000, // 2 minute timeout
+        });
+        ranSuccessfully = true;
+        break;
+      } catch (execError) {
+        const err = execError as { stderr?: Buffer; message?: string };
+        lastError = err.stderr?.toString() || err.message || lastError;
+      }
     }
 
-    console.log(`[scip] Running: ${args.join(" ")}`);
-
-    try {
-      execSync(args.join(" "), {
-        cwd: options.projectPath,
-        stdio: "pipe",
-        timeout: 120000, // 2 minute timeout
-      });
-    } catch (execError) {
-      const err = execError as { stderr?: Buffer; message?: string };
+    if (!ranSuccessfully) {
       return {
         success: false,
-        error: err.stderr?.toString() || err.message || "SCIP indexer failed",
+        error: lastError,
         language: "typescript",
         duration: Date.now() - startTime,
       };

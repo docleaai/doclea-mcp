@@ -11,12 +11,17 @@ import { DriftSearch } from "@/graphrag/search/drift-search";
 import { GlobalSearch } from "@/graphrag/search/global-search";
 import { LocalSearch } from "@/graphrag/search/local-search";
 import type {
+  CommunityReport,
   DriftSearchResult,
   GlobalSearchResult,
   LocalSearchResult,
 } from "@/graphrag/types";
 import type { IStorageBackend } from "@/storage/interface";
 import type { VectorStore } from "@/vectors/interface";
+import {
+  GRAPHRAG_REPORT_VECTOR_TYPE,
+  searchGraphEntities,
+} from "./entity-vectors";
 
 export const SearchInputSchema = z.object({
   query: z.string().min(1).describe("Search query"),
@@ -75,44 +80,22 @@ export async function graphragSearch(
   const entityVectorSearch = async (
     query: string,
   ): Promise<Array<{ entityId: string; score: number }>> => {
-    // Embed the query
-    const queryVector = await embeddings.embed(query);
+    const results = await searchGraphEntities(
+      query,
+      graphStorage,
+      vectors,
+      embeddings,
+      {
+        limit: Math.max(Math.min(input.limit, 50), 20),
+        minScore: 0.12,
+        minLexicalScore: 0.2,
+      },
+    );
 
-    // Search for entities by name similarity
-    // Since we don't have a dedicated entity vector index, we'll do text matching
-    const entities = graphStorage.listEntities({ limit: 100 });
-    const results: Array<{ entityId: string; score: number }> = [];
-
-    for (const entity of entities) {
-      // Simple text similarity score
-      const nameLower = entity.canonicalName.toLowerCase();
-      const queryLower = query.toLowerCase();
-
-      let score = 0;
-      if (nameLower === queryLower) {
-        score = 1.0;
-      } else if (
-        nameLower.includes(queryLower) ||
-        queryLower.includes(nameLower)
-      ) {
-        score = 0.7;
-      } else {
-        // Word overlap
-        const queryWords = queryLower.split(/\s+/);
-        const nameWords = nameLower.split(/\s+/);
-        const overlap = queryWords.filter((w) =>
-          nameWords.some((nw) => nw.includes(w) || w.includes(nw)),
-        ).length;
-        score = (overlap / Math.max(queryWords.length, 1)) * 0.5;
-      }
-
-      if (score > 0.1) {
-        results.push({ entityId: entity.id, score });
-      }
-    }
-
-    // Sort by score and limit
-    return results.sort((a, b) => b.score - a.score).slice(0, 20);
+    return results.map((result) => ({
+      entityId: result.entityId,
+      score: result.score,
+    }));
   };
 
   // Create report vector search function
@@ -124,23 +107,50 @@ export async function graphragSearch(
     const vectorResults = await vectors.search(
       queryVector,
       {
-        type: "graphrag_report" as any,
+        type: GRAPHRAG_REPORT_VECTOR_TYPE,
       },
       20,
     );
 
-    // Map results to report IDs
-    const results: Array<{ reportId: string; score: number }> = [];
-    for (const hit of vectorResults) {
-      if (hit.payload?.id) {
-        results.push({
-          reportId: hit.payload.id as string,
-          score: hit.score,
-        });
+    // Map results to report IDs. Older payloads may not include reportId,
+    // so we resolve via embedding_id fallback.
+    const reportsByEmbeddingId = new Map<string, CommunityReport>();
+    for (const report of graphStorage.getAllReports()) {
+      if (report.embeddingId) {
+        reportsByEmbeddingId.set(report.embeddingId, report);
       }
     }
 
-    return results;
+    const resultsByReportId = new Map<string, number>();
+    for (const hit of vectorResults) {
+      const payload = hit.payload as Record<string, unknown>;
+      const reportIdFromPayload =
+        typeof payload.reportId === "string" ? payload.reportId : null;
+
+      let report: CommunityReport | null = null;
+      if (reportIdFromPayload) {
+        report = graphStorage.getReportById(reportIdFromPayload);
+      }
+      if (!report && hit.memoryId) {
+        report = reportsByEmbeddingId.get(hit.memoryId) ?? null;
+      }
+      if (!report && hit.id) {
+        report = reportsByEmbeddingId.get(hit.id) ?? null;
+      }
+      if (!report) {
+        continue;
+      }
+
+      const existingScore = resultsByReportId.get(report.id);
+      if (existingScore === undefined || hit.score > existingScore) {
+        resultsByReportId.set(report.id, hit.score);
+      }
+    }
+
+    return Array.from(resultsByReportId.entries())
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 20)
+      .map(([reportId, score]) => ({ reportId, score }));
   };
 
   // Create embedder function for drift search

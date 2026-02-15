@@ -1,13 +1,13 @@
 ---
 sidebar_position: 1
 title: API Overview
-description: Complete reference for all 55+ Doclea MCP tools. Memory, relations, code scanning, workflow, context building, and more.
+description: Complete reference for all 62 Doclea MCP tools. Memory, relations, code scanning, workflow, context building, and more.
 keywords: [API, MCP tools, reference, doclea, RAG, KAG, relations]
 ---
 
 # API Overview
 
-Doclea provides **55+ MCP tools** across twelve categories. Use natural language with Claude, or invoke tools directly.
+Doclea provides **62 MCP tools** across multiple categories. Use natural language with Claude, or invoke tools directly.
 
 ---
 
@@ -47,19 +47,18 @@ Auto-detect relationships between memories.
 | [`doclea_review_suggestion`](./detection/review-suggestion) | Accept/reject | "Accept that relation suggestion" |
 | [`doclea_bulk_review`](./detection/bulk-review) | Batch decisions | "Accept all high-confidence suggestions" |
 
-### Cross-Layer Relations (7)
+### Cross-Layer Relations (6)
 
 Bridge code and memories (KAG ↔ RAG).
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
-| [`doclea_suggest_crosslayer`](./cross-layer/suggest-crosslayer) | Detect code-memory links | "Find code related to auth decision" |
 | [`doclea_suggest_relations`](./cross-layer/suggest-relations) | Bidirectional detection | "What relates to this code/memory?" |
 | [`doclea_get_code_for_memory`](./cross-layer/get-code-for-memory) | Code for a memory | "What code implements this pattern?" |
 | [`doclea_get_memories_for_code`](./cross-layer/get-memories-for-code) | Memories for code | "What decisions affect this file?" |
-| [`doclea_get_crosslayer_suggestions`](./cross-layer/get-crosslayer-suggestions) | View suggestions | "Show pending cross-layer links" |
-| [`doclea_review_crosslayer`](./cross-layer/review-crosslayer) | Review suggestion | "Accept that code-memory link" |
-| [`doclea_bulk_review_crosslayer`](./cross-layer/bulk-review-crosslayer) | Batch decisions | "Accept all cross-layer suggestions" |
+| [`doclea_get_cross_layer_suggestions`](./cross-layer/get-crosslayer-suggestions) | View suggestions | "Show pending cross-layer links" |
+| [`doclea_review_cross_layer_suggestion`](./cross-layer/review-crosslayer) | Review suggestion | "Accept that code-memory link" |
+| [`doclea_bulk_review_cross_layer`](./cross-layer/bulk-review-crosslayer) | Batch decisions | "Accept all cross-layer suggestions" |
 
 ### Code Scanning / KAG (11)
 
@@ -90,15 +89,15 @@ Manage storage modes and pending memories.
 | [`doclea_list_pending`](./workflow/list-pending) | View pending | "Show pending memories" |
 | [`doclea_approve_pending`](./workflow/approve-pending) | Approve one | "Approve pending memory X" |
 | [`doclea_reject_pending`](./workflow/reject-pending) | Reject one | "Reject that pending memory" |
-| [`doclea_bulk_approve`](./workflow/bulk-approve-pending) | Approve batch | "Approve all pending memories" |
-| [`doclea_bulk_reject`](./workflow/bulk-reject-pending) | Reject batch | "Reject all low-confidence pending" |
+| [`doclea_bulk_approve_pending`](./workflow/bulk-approve-pending) | Approve batch | "Approve all pending memories" |
+| [`doclea_bulk_reject_pending`](./workflow/bulk-reject-pending) | Reject batch | "Reject all low-confidence pending" |
 | [`doclea_review_queue`](./workflow/review-queue) | Auto-stored queue | "Show memories needing review" |
 | [`doclea_confirm`](./workflow/confirm-memory) | Confirm reviewed | "Confirm that memory is good" |
 | [`doclea_refresh_confidence`](./workflow/refresh-confidence) | Refresh decay | "Refresh confidence for this memory" |
 
 ### Context Building (1)
 
-Assemble RAG + KAG context.
+Assemble RAG + KAG + GraphRAG context.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
@@ -114,21 +113,31 @@ Manage token allocation.
 | [`doclea_model_windows`](./budget/model-windows) | Model limits | "What are model context windows?" |
 | [`doclea_budget_presets`](./budget/budget-presets) | Preset configs | "Show available budget presets" |
 
-### Export/Import (2)
+### Bootstrap & Import (2)
+
+Initialize and ingest existing project knowledge.
+
+| Tool | Purpose | Example Prompt |
+|------|---------|----------------|
+| [`doclea_init`](./bootstrap/init) | Initialize project | "Initialize doclea for this project" |
+| `doclea_import` | Import markdown/ADR content | "Import from docs/adr" |
+
+### Backup & Restore (2)
 
 Backup and restore data.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
 | [`doclea_export`](./backup/export) | Export data | "Export all data to backup.json" |
-| [`doclea_import`](./backup/import) | Import data | "Import from backup.json" |
+| [`doclea_restore`](./backup/import) | Restore backup | "Restore from backup.json" |
 
-### Cache & A/B Testing (4)
+### Cache & A/B Testing (5)
 
 Performance and experimentation.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
+| [`doclea_retrieval_benchmark`](./testing/retrieval-benchmark) | Benchmark retrieval latency | "Benchmark retrieval for auth and payment queries" |
 | [`doclea_cache_stats`](./testing/cache-stats) | Cache statistics | "Show cache performance" |
 | [`doclea_cache_clear`](./testing/cache-clear) | Clear cache | "Clear the context cache" |
 | [`doclea_experiment_status`](./testing/experiment-status) | Experiment status | "Show A/B test status" |
@@ -153,13 +162,15 @@ Code ownership and reviewers.
 | [`doclea_expertise`](./expertise/mapping) | Map ownership | "Who owns the payment module?" |
 | [`doclea_suggest_reviewers`](./expertise/reviewers) | Suggest reviewers | "Suggest reviewers for this PR" |
 
-### Bootstrap Tools (1)
+### GraphRAG Tools (3)
 
-Initialize projects.
+Graph-based retrieval and community analysis.
 
 | Tool | Purpose | Example Prompt |
 |------|---------|----------------|
-| [`doclea_init`](./bootstrap/init) | Initialize project | "Initialize doclea for this project" |
+| `doclea_graphrag_build` | Build/update GraphRAG index | "Build GraphRAG from memories" |
+| `doclea_graphrag_search` | Search graph (local/global/drift) | "Search GraphRAG for auth architecture" |
+| `doclea_graphrag_status` | Graph health and statistics | "Show GraphRAG status" |
 
 ### Maintenance Tools (1)
 

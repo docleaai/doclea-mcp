@@ -149,6 +149,7 @@ export const QdrantConfigSchema = z.object({
   url: z.string(),
   apiKey: z.string().optional(),
   collectionName: z.string().default("doclea_vectors"),
+  vectorSize: z.number().int().positive().default(768),
 });
 
 export const VectorConfigSchema = z.discriminatedUnion("provider", [

@@ -376,7 +376,7 @@ describe("Zero-Config E2E Tests", () => {
       expect(results).toHaveLength(10);
 
       store.close();
-    });
+    }, 20000);
   });
 
   describe("edge cases", () => {

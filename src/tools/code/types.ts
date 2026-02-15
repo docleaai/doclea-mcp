@@ -134,6 +134,7 @@ export interface ScanOptions {
   watch?: boolean;
   detectRelations?: boolean;
   extractSummaries?: boolean;
+  detectDeleted?: boolean;
 }
 
 export interface IncrementalScanResult {
